@@ -1,4 +1,5 @@
 from __future__ import print_function
+from collections import Counter
 import numpy as np
 import pandas as pd
 import os
@@ -149,28 +150,40 @@ def read_sequences(txtfile,verbose=True):
     feature_matrix = dataframe.as_matrix()
     return feature_matrix,labels
 
+
+def subsample_dataset(X,labels, dataset_info):
+    '''
+    Reduce dataset to dataset_info.new_total_samples, taking the same number of samples from every class.
+    '''
+    if dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
+        return (X,labels)
+    unq_lbls = np.unique(labels, return_counts=True)
+    max_label_cnt = dataset_info.new_total_samples / len(unq_lbls[0])
+    if any(unq_lbls[1] < max_label_cnt):
+        raise Exception("One of the classes doesn't have enough labels %d, unq_lbls[1]=%s" % (max_label_cnt, ','.join(unq_lbls[1])) )
+    per_label_cnt = Counter()
+    new_X = []
+    new_labels = []
+    # Accumulate reduced dataset (trainset) in new_X while the number of samples from each label isn't higher than max_label_cnt
+    for i in range(0,len(X)):
+        if (per_label_cnt[labels[i]] < max_label_cnt):
+            new_X.append(X[i])
+            new_labels.append(labels[i])
+            per_label_cnt[labels[i]] += 1
+    return (np.array(new_X),new_labels)
+        
 def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
-    num_labels = len(dataset_info.label_names)
-    if type(features)==list:
-        num_examples = len(features)
-        random_order = np.random.permutation(num_examples)
-        index_split = (int)(test_split*num_examples)
-        train_indices = random_order[index_split:]
-        test_indices = random_order[:index_split]
-        X_train = [features[i] for i in train_indices]
-        X_test = [features[i] for i in test_indices]
-        Y_train = [labels[i] for i in train_indices]
-        Y_test = [labels[i] for i in test_indices]
-    else:
-        num_examples = features.shape[0]
-        random_order = np.random.permutation(num_examples)
-        index_split = (int)(test_split*num_examples)
-        train_indices = random_order[index_split:]
-        test_indices = random_order[:index_split]
-        X_train = features[train_indices]
-        X_test = features[test_indices]
-        Y_train = [labels[i] for i in train_indices]
-        Y_test = [labels[i] for i in test_indices]
+    num_labels = len(dataset_info.label_names)   
+    num_examples = features.shape[0]    
+    random_order = np.random.permutation(num_examples)
+    index_split = (int)(test_split*num_examples)
+    train_indices = random_order[index_split:]
+    test_indices = random_order[:index_split]
+    X_train = features[train_indices]
+    X_test = features[test_indices]
+    Y_train = [labels[i] for i in train_indices]
+    Y_test = [labels[i] for i in test_indices]    
+    (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
     Y_train_c = np_utils.to_categorical(Y_train, num_labels)
     Y_test_c = np_utils.to_categorical(Y_test, num_labels)
     return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test
@@ -189,29 +202,16 @@ def get_emails(emailsFilePath,verbose=True):
             pickle.dump(emails,store_to)    
     return emails
 
-def sample_emails(emails, dataset_info):
-    return emails
-
-def map_labels(emails,labelsMap):
-    if not labelsMap: 
-        return emails
-    
-    for email in emails:
-        email.label = labelsMap[email.label]
-    return emails
-            
-    
+                
 def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     #yeah yeah these can be separate functions, but lets just bundle it all up
-    csvfile = 'keras_data_%d_%s_%s_%d.csv'%(num_words,str(matrix_type), hash(frozenset(dataset_info.labelsMap.items())), dataset_info.total_new) # Cached features csv file
+    csvfile = 'keras_data_%d_%s.csv'%(num_words,str(matrix_type)) # Cached features csv file
     infofile = 'data_info.txt'
     if os.path.isfile(csvfile):
         features,labels,feature_names = read_csv(csvfile,verbose=verbose)
         label_names = read_info(infofile)
     else:
         emails = get_emails(emailsFilePath, verbose=verbose)
-        emails = sample_emails(emails,dataset_info)
-        emails = map_labels(emails,dataset_info.labelsMap)
         features,labels,feature_names,label_names = get_word_features(emails,nb_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
         if max_n==1:
             write_csv(csvfile,features,labels,feature_names,verbose=verbose)

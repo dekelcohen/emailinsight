@@ -21,8 +21,9 @@ class DatasetInfo():
         pass
     
 dataset_info = DatasetInfo()
-dataset_info.total_new = 100
-dataset_info.labelsMap = labelsMap
+dataset_info.new_total_samples = 100
+dataset_info.new_total_labels = 2
+# dataset_info.labelsMap = labelsMap
 
 def select_best_features(dataset, train_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset
