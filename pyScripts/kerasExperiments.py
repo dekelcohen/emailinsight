@@ -1,4 +1,4 @@
-from kerasClassify import *
+from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
@@ -154,7 +154,8 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
     features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     num_labels = len(label_names)
-    dataset,train_label_list,test_label_list = make_dataset(features,labels,num_labels,test_split=test_split)
+    dataset_info.label_names = label_names
+    dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
         dataset,scores = select_best_features(dataset,train_label_list,select_best,verbose=verbose)
     if plot and select_best:
@@ -304,10 +305,10 @@ run_baseline = False
 run_once(num_words=10000,dropout=0.5,num_hidden=512, extra_layers=0,plot=True,verbose=True,select_best=4000)
 
 if (run_baseline):
-    features,labels,feature_names,label_names = get_ngram_data(emailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
+    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
     #features,labels,label_names = get_sequence_data()
-    num_labels = len(label_names)
-    dataset,train_label_list,test_label_list = make_dataset(features,labels,num_labels,test_split=0.1)
+    dataset_info.label_names = label_names    
+    dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=0.1)
     
     # Feature selection (best 4000 features)
     dataset,scores = select_best_features(dataset,train_label_list,4000,verbose=True)

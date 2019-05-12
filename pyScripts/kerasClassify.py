@@ -149,7 +149,8 @@ def read_sequences(txtfile,verbose=True):
     feature_matrix = dataframe.as_matrix()
     return feature_matrix,labels
 
-def make_dataset(features,labels,num_labels,test_split=0.1,nb_words=1000):
+def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
+    num_labels = len(dataset_info.label_names)
     if type(features)==list:
         num_examples = len(features)
         random_order = np.random.permutation(num_examples)
