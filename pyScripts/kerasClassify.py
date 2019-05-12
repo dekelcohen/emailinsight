@@ -171,8 +171,31 @@ def subsample_dataset(X,labels, dataset_info):
             new_labels.append(labels[i])
             per_label_cnt[labels[i]] += 1
     return (np.array(new_X),new_labels)
+
+def create_get_new_label_idx(new_total_labels):
+    def get_new_label_idx(old_label_idx):
+        return int(old_label_idx % new_total_labels)
+    return get_new_label_idx
+
+    
+def map_labels(Y_train,Y_test, dataset_info):
+    '''
+    map the new_total_labels
+    '''
+    new_total_labels = len(dataset_info.new_label_names)
+    old_num_labels = len(dataset_info.label_names)    
+    if not (old_num_labels / new_total_labels).is_integer():
+        raise Exception("old_num_labels must be integer %f" % (old_num_labels))
         
+    get_new_label_idx = create_get_new_label_idx(new_total_labels)    
+    new_Y_train = list(map(get_new_label_idx, Y_train))
+    new_Y_test = list(map(get_new_label_idx, Y_test))        
+    return (new_Y_train, new_Y_test, new_total_labels)        
+
 def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
+    '''
+    Split train, test subsample and remap labels
+    '''
     num_labels = len(dataset_info.label_names)   
     num_examples = features.shape[0]    
     random_order = np.random.permutation(num_examples)
@@ -183,10 +206,14 @@ def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
     X_test = features[test_indices]
     Y_train = [labels[i] for i in train_indices]
     Y_test = [labels[i] for i in test_indices]    
+    # Subsample dataset to get dataset_info.new_total_samples 
     (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
+    # Map labels (ex: from folders to binary 2 folder groups)
+    (Y_train,Y_test, num_labels) = map_labels(Y_train,Y_test, dataset_info)
+    
     Y_train_c = np_utils.to_categorical(Y_train, num_labels)
     Y_test_c = np_utils.to_categorical(Y_test, num_labels)
-    return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test
+    return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
 
 def get_emails(emailsFilePath,verbose=True):
     picklefile = 'pickled_emails.pickle'

@@ -22,7 +22,7 @@ class DatasetInfo():
     
 dataset_info = DatasetInfo()
 dataset_info.new_total_samples = 100
-dataset_info.new_total_labels = 2
+dataset_info.new_label_names = ['Save','DontSave']
 # dataset_info.labelsMap = labelsMap
 
 def select_best_features(dataset, train_labels, num_best, verbose=True):
@@ -156,7 +156,10 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     num_labels = len(label_names)
     dataset_info.label_names = label_names
-    dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=test_split)
+    if dataset_info.new_label_names is not None:
+        label_names = dataset_info.new_label_names
+        
+    dataset,train_label_list,test_label_list,num_labels = make_dataset(features,labels,dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
         dataset,scores = select_best_features(dataset,train_label_list,select_best,verbose=verbose)
     if plot and select_best:
