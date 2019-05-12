@@ -185,18 +185,32 @@ def get_emails(emailsFilePath,verbose=True):
         # Uncomment to parse CSV 
         emails = parseEmailsCSV(emailsFilePath)
         with open(picklefile,'wb') as store_to:
-            pickle.dump(emails,store_to)
+            pickle.dump(emails,store_to)    
     return emails
 
-def get_ngram_data(emailsFilePath, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
+def sample_emails(emails, dataset_info):
+    return emails
+
+def map_labels(emails,labelsMap):
+    if not labelsMap: 
+        return emails
+    
+    for email in emails:
+        email.label = labelsMap[email.label]
+    return emails
+            
+    
+def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     #yeah yeah these can be separate functions, but lets just bundle it all up
-    csvfile = 'keras_data_%d_%s.csv'%(num_words,str(matrix_type))
+    csvfile = 'keras_data_%d_%s_%s_%d.csv'%(num_words,str(matrix_type), hash(frozenset(dataset_info.labelsMap.items())), dataset_info.total_new) # Cached features csv file
     infofile = 'data_info.txt'
     if os.path.isfile(csvfile):
         features,labels,feature_names = read_csv(csvfile,verbose=verbose)
         label_names = read_info(infofile)
     else:
         emails = get_emails(emailsFilePath, verbose=verbose)
+        emails = sample_emails(emails,dataset_info)
+        emails = map_labels(emails,dataset_info.labelsMap)
         features,labels,feature_names,label_names = get_word_features(emails,nb_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
         if max_n==1:
             write_csv(csvfile,features,labels,feature_names,verbose=verbose)

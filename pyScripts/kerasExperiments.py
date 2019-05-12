@@ -14,8 +14,15 @@ import time
 
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_KAMINSKI.tsv";
+labelsMap =  { 'London' : 'Save', 'Australia' : 'Save', 'Projects' : 'Save', 'Stanford' : 'Save', 'Techmemos' : 'DontSave', 'resumes' : 'DontSave' }
 
-
+class DatasetInfo():
+    def __init__(self):
+        pass
+    
+dataset_info = DatasetInfo()
+dataset_info.total_new = 100
+dataset_info.labelsMap = labelsMap
 
 def select_best_features(dataset, train_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset
@@ -145,7 +152,7 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
     return accuracy
 
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
-    features,labels,feature_names,label_names = get_ngram_data(emailsFilePath=csvEmailsFilePath, num_words=num_words,matrix_type=ftype,verbose=verbose)
+    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     num_labels = len(label_names)
     dataset,train_label_list,test_label_list = make_dataset(features,labels,num_labels,test_split=test_split)
     if select_best and select_best<num_words:
@@ -297,7 +304,7 @@ run_baseline = False
 run_once(num_words=10000,dropout=0.5,num_hidden=512, extra_layers=0,plot=True,verbose=True,select_best=4000)
 
 if (run_baseline):
-    features,labels,feature_names,label_names = get_ngram_data(emailsFilePath=csvEmailsFilePath,num_words=5000,matrix_type='tfidf',verbose=True,max_n=1)
+    features,labels,feature_names,label_names = get_ngram_data(emailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
     #features,labels,label_names = get_sequence_data()
     num_labels = len(label_names)
     dataset,train_label_list,test_label_list = make_dataset(features,labels,num_labels,test_split=0.1)
