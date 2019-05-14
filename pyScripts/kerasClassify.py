@@ -1,4 +1,5 @@
 from __future__ import print_function
+
 from collections import Counter
 import numpy as np
 import pandas as pd
@@ -14,13 +15,20 @@ from keras.optimizers import SGD, Adam, RMSprop
 from keras.preprocessing.text import Tokenizer
 from keras.layers.embeddings import Embedding
 from keras.utils import np_utils
-from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 from kerasPlotter import Plotter
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Conv1D, MaxPooling1D
 from keras.layers.recurrent import LSTM,GRU
 from keras.layers.core import Dense, Dropout, Activation, Flatten
+
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
+
+import nltk
+from nltk.corpus import stopwords
+nltk.download("stopwords")
+eng_stopwords = set(stopwords.words("english"))
+
+from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 
 def get_word_features(emails,verbose=True,nb_words=5000,skip_top=0,maxlen=None,as_matrix=True, matrix_type='count', label_cutoff=0.01,max_n=1):
     (totalWordsCount,fromCount,domainCount,labels) = getEmailStats(emails)
