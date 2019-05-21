@@ -167,15 +167,15 @@ def subsample_dataset(X,labels, dataset_info):
     if not hasattr(dataset_info, 'new_total_samples') or dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
         return (X,labels)
     unq_lbls = np.unique(labels, return_counts=True)
-    max_label_cnt = dataset_info.new_total_samples / len(unq_lbls[0])
-    if any(unq_lbls[1] < max_label_cnt):
-        raise Exception("One of the classes doesn't have enough labels %d, unq_lbls[1]=%s" % (max_label_cnt, ','.join(unq_lbls[1])) )
+    n_samples_per_label = dataset_info.new_total_samples * (1 - dataset_info.test_split) / len(unq_lbls[0])
+    if any(unq_lbls[1] < min(15,n_samples_per_label) ):
+        raise Exception("One of the classes doesn't have enough labels %d, unq_lbls[1]=%s" % (n_samples_per_label, ','.join(unq_lbls[1])) )
     per_label_cnt = Counter()
     new_X = []
     new_labels = []
-    # Accumulate reduced dataset (trainset) in new_X while the number of samples from each label isn't higher than max_label_cnt
+    # Accumulate reduced dataset (trainset) in new_X while the number of samples from each label isn't higher than n_samples_per_label
     for i in range(0,len(X)):
-        if (per_label_cnt[labels[i]] < max_label_cnt):
+        if (per_label_cnt[labels[i]] < n_samples_per_label):
             new_X.append(X[i])
             new_labels.append(labels[i])
             per_label_cnt[labels[i]] += 1
