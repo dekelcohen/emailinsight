@@ -181,9 +181,12 @@ def subsample_dataset(X,labels, dataset_info):
             per_label_cnt[labels[i]] += 1
     return (np.array(new_X),new_labels)
 
-def create_get_new_label_idx(new_total_labels):
+def create_get_new_label_idx(dataset_info, new_total_labels):  
+    permuted_old_label_idxs = np.random.permutation(len(dataset_info.label_names))
+    dataset_info.permuted_old_label_idxs = permuted_old_label_idxs
     def get_new_label_idx(old_label_idx):
-        return int(old_label_idx % new_total_labels)
+        permuted_old_label_idx = permuted_old_label_idxs[old_label_idx]
+        return int(permuted_old_label_idx % new_total_labels)
     return get_new_label_idx
 
     
@@ -196,7 +199,7 @@ def map_labels(Y_train,Y_test, dataset_info):
     if not (old_num_labels / new_total_labels).is_integer():
         raise Exception("old_num_labels must be integer %f" % (old_num_labels))
         
-    get_new_label_idx = create_get_new_label_idx(new_total_labels)    
+    get_new_label_idx = create_get_new_label_idx(dataset_info, new_total_labels)    
     new_Y_train = list(map(get_new_label_idx, Y_train))
     new_Y_test = list(map(get_new_label_idx, Y_test))        
     return (new_Y_train, new_Y_test, new_total_labels)        
