@@ -306,8 +306,10 @@ def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=['accuracy'])
-    plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
-    callbacks = [plotter] if graph_to else []
+    callbacks = []
+    if graph_to is not None:
+        plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
+        callbacks = [plotter]
     history = model.fit(X_train, Y_train, epochs=nb_epoch, batch_size=batch_size, verbose=1 if verbose else 0, validation_split=0.1,callbacks=callbacks)
     score = model.evaluate(X_test, Y_test, batch_size=batch_size, verbose=1 if verbose else 0)
     if verbose:
