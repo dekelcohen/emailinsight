@@ -23,10 +23,11 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten
 
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 
-import nltk
-from nltk.corpus import stopwords
-nltk.download("stopwords")
-eng_stopwords = set(stopwords.words("english"))
+# TODO: Try remove stopwords 
+#import nltk
+#from nltk.corpus import stopwords
+#nltk.download("stopwords")
+#eng_stopwords = set(stopwords.words("english"))
 
 from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 
@@ -163,7 +164,7 @@ def subsample_dataset(X,labels, dataset_info):
     '''
     Reduce dataset to dataset_info.new_total_samples, taking the same number of samples from every class.
     '''
-    if dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
+    if not hasattr(dataset_info, 'new_total_samples') or dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
         return (X,labels)
     unq_lbls = np.unique(labels, return_counts=True)
     max_label_cnt = dataset_info.new_total_samples / len(unq_lbls[0])

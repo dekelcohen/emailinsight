@@ -14,16 +14,23 @@ import time
 
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_KAMINSKI.tsv";
-labelsMap =  { 'London' : 'Save', 'Australia' : 'Save', 'Projects' : 'Save', 'Stanford' : 'Save', 'Techmemos' : 'DontSave', 'resumes' : 'DontSave' }
+
 
 class DatasetInfo():
     def __init__(self):
         pass
     
 dataset_info = DatasetInfo()
-dataset_info.new_total_samples = 100
+
+
+dataset_info.num_runs = 20
+#-- Data 
 dataset_info.new_label_names = ['Save','DontSave']
-# dataset_info.labelsMap = labelsMap
+# dataset_info.new_total_samples = 100
+dataset_info.test_split = 0.1
+#-- NN Arch
+dataset_info.num_hidden = 128
+dataset_info.dropout = 0.5
 
 def select_best_features(dataset, train_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset
@@ -306,19 +313,31 @@ run_baseline = False
 #test_select_words(16)
 
 # TODO: try ftype = 'tfidf'
-run_once(num_words=10000,dropout=0.5,num_hidden=512, extra_layers=0,plot=True,verbose=True,select_best=4000)
 
-if (run_baseline):
-    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
-    #features,labels,label_names = get_sequence_data()
-    dataset_info.label_names = label_names    
-    dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=0.1)
-    
-    # Feature selection (best 4000 features)
-    dataset,scores = select_best_features(dataset,train_label_list,4000,verbose=True)
-    
-    # Unrem for baseline svm 
-    baseline = get_baseline_svm(dataset,train_label_list,test_label_list,verbose=True) 
-    
-    # Unrem for convnet (not very good at intial tests)
-    # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
+def output_runs_stat():
+    import statistics
+    if dataset_info.num_runs > 1:    
+        print('Test Accuracy: stats runs: %d, mean: %f, stdev: %f, median: %f, min: %f, max: %f'%(dataset_info.num_runs, statistics.mean(test_accs), statistics.stdev(test_accs), statistics.median(test_accs), min(test_accs), max(test_accs)))
+
+test_accs = []
+for i in range(0,dataset_info.num_runs):
+    *dummy,test_acc = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True,verbose=True,select_best=4000)
+    test_accs.append(test_acc)
+
+    if (run_baseline):
+        features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
+        #features,labels,label_names = get_sequence_data()
+        dataset_info.label_names = label_names    
+        dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=0.1)
+        
+        # Feature selection (best 4000 features)
+        dataset,scores = select_best_features(dataset,train_label_list,4000,verbose=True)
+        
+        # Unrem for baseline svm 
+        baseline = get_baseline_svm(dataset,train_label_list,test_label_list,verbose=True) 
+        
+        # Unrem for convnet (not very good at intial tests)
+        # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
+
+output_runs_stat()
+
