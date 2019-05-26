@@ -12,6 +12,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
+import pandas as pd
+from keras_metrics import precision,recall,f1
+
+
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
@@ -23,16 +27,19 @@ class DatasetInfo():
 dataset_info = DatasetInfo()
 
 
-dataset_info.num_runs = 1
+dataset_info.num_runs = 2
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-
+dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
+#-- Metrics 
+dataset_info.metrics=[('accuracy', 'accuracy'),('precision', precision),('recall', recall),('f1', f1)]
 #-- NN Arch
 dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
+#TODO: dataset_info.random_seed = 42 # Used to make random splits reproducible
 
 ### Experiment params validation and computed params
 if hasattr(dataset_info, 'labels_map') :
@@ -180,7 +187,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if plot and select_best:
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
-    predictions,acc = evaluate_mlp_model(dataset,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    predictions,test_metrics = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
     
@@ -192,7 +199,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if plot:
         plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
         plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
-    return dataset,train_label_list,test_label_list,acc
+    return dataset,train_label_list,test_label_list,test_metrics
 
 def test_features_words():
     #get emails once to pickle
@@ -325,15 +332,22 @@ run_baseline = False
 
 # TODO: try ftype = 'tfidf'
 
-def output_runs_stat():
-    import statistics
+def output_runs_stat(df_test_metrics):    
     if dataset_info.num_runs > 1:    
-        print('Test Accuracy: stats runs: %d, mean: %f, stdev: %f, median: %f, min: %f, max: %f'%(dataset_info.num_runs, statistics.mean(test_accs), statistics.stdev(test_accs), statistics.median(test_accs), min(test_accs), max(test_accs)))
+        print('Test runs stats:')
+        print(df_test_metrics.describe())        
 
-test_accs = []
+# Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
+import io
+metrics_columns=[mtr[0] for mtr in dataset_info.metrics]
+metrics_columns.insert(0,'score')
+metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
+df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
+
 for i in range(0,dataset_info.num_runs):
-    *dummy,test_acc = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
-    test_accs.append(test_acc)
+    *dummy,test_metrics = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+    df_test_metrics.loc[i] = test_metrics
+    
 
     if (run_baseline):
         features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
@@ -350,5 +364,5 @@ for i in range(0,dataset_info.num_runs):
         # Unrem for convnet (not very good at intial tests)
         # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
 
-output_runs_stat()
+output_runs_stat(df_test_metrics)
 

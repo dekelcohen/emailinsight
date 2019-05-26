@@ -22,7 +22,7 @@ from keras.layers.recurrent import LSTM,GRU
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
-from keras_metrics import precision,recall,f1
+
 
 # TODO: Try remove stopwords 
 #import nltk
@@ -160,8 +160,11 @@ def read_sequences(txtfile,verbose=True):
     feature_matrix = dataframe.as_matrix()
     return feature_matrix,labels
 
-
-def subsample_dataset(X,labels, dataset_info):
+def init_randomness(dataset_info):
+    if hasattr(dataset_info, 'random_seed') and not dataset_info.random_seed is None:
+        np.random.seed(dataset_info.random_seed)
+        
+def auto_subsample_dataset(X,labels, dataset_info):
     '''
     Reduce dataset to dataset_info.new_total_samples, taking the same number of samples from every class.
     '''
@@ -181,6 +184,32 @@ def subsample_dataset(X,labels, dataset_info):
             new_labels.append(labels[i])
             per_label_cnt[labels[i]] += 1
     return (np.array(new_X),new_labels)
+
+def subsample_dataset(X,labels, dataset_info):
+    '''
+    Reduce each label in dataset to specified amount in dataset_info.sub_sample_mapped_labels ex: { 'Save': 60 ,'DontSave' : 600 }
+    '''
+    if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
+        return (X,labels)
+    
+    unq_lbls = np.unique(labels)
+    init_randomness(dataset_info)
+    
+    # find observation index of each class levels
+    groupby_lbls = {}
+    for ii, lbl_idx in enumerate(unq_lbls):
+        lbl_samples_idxs = [idx for idx, val in enumerate(labels) if val == lbl_idx]
+        groupby_lbls[lbl_idx] = lbl_samples_idxs 
+    
+    # Undersample each label (in a loop) according to sub_sample_mapped_labels (above)
+    idx_to_new_label = dict(zip(list(range(0,len(dataset_info.label_names))), dataset_info.new_label_names))     
+    under_sample_idxs = [] # Holds all idx of samples (from all labels), selected to keep
+    for lbl_idx, lbl_samples_idxs in groupby_lbls.items():
+        lbl_sample_size = dataset_info.sub_sample_mapped_labels[idx_to_new_label[lbl_idx]]
+        lbl_under_sample_idxs = np.random.choice(lbl_samples_idxs, size=lbl_sample_size, replace=False).tolist()
+        under_sample_idxs += lbl_under_sample_idxs
+    return (X[under_sample_idxs],[labels[sample_idx] for sample_idx in under_sample_idxs])
+
 
 def create_get_new_label_idx(dataset_info, new_total_labels):  
     permuted_old_label_idxs = np.random.permutation(len(dataset_info.label_names))
@@ -245,13 +274,16 @@ def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
     Y_train = [labels[i] for i in train_indices]
     Y_test = [labels[i] for i in test_indices]    
     # Subsample dataset to get dataset_info.new_total_samples 
-    (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
+    (X_train,Y_train) = auto_subsample_dataset(X_train,Y_train, dataset_info)
     # Map labels (ex: from folders to binary 2 folder groups)
     if dataset_info.new_label_names and not hasattr(dataset_info,'labels_map'):
         (Y_train,Y_test, num_labels) = auto_map_labels(Y_train,Y_test, dataset_info)
     # Map labels manually    
     if dataset_info.labels_map:
         (Y_train,Y_test, num_labels) = map_labels(Y_train,Y_test, dataset_info)
+    # Subsample manually according to [optional] sub_sample_mapped_labels. 
+    # Note that train/test split (0.1) already occured (above) --> so only trainset is reduced 
+    (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
     Y_train_c = np_utils.to_categorical(Y_train, num_labels)
     Y_test_c = np_utils.to_categorical(Y_test, num_labels)
     return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
@@ -314,7 +346,7 @@ def get_sequence_data():
     num_labels = max(labels)+1
     return features,labels,label_names
 
-def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout=0.5,graph_to=None,verbose=True):
+def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidden=512,dropout=0.5,graph_to=None,verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset
     batch_size = 32
     nb_epoch = 7
@@ -337,7 +369,7 @@ def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout
         model.add(Dropout(dropout))
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=['accuracy',precision,recall,f1])
+    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=[mtr[1] for mtr in dataset_info.metrics])
     callbacks = []
     if graph_to is not None:
         plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
@@ -348,7 +380,7 @@ def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout
         print('Test score:',score[0])
         print('Test accuracy: %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
     predictions = model.predict_classes(X_test,verbose=1 if verbose else 0)
-    return predictions,score[1]
+    return predictions,score
 
 def evaluate_recurrent_model(dataset,num_classes):
     (X_train, Y_train), (X_test, Y_test) = dataset
