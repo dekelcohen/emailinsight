@@ -13,7 +13,7 @@ import numpy as np
 import time
 
 # Dataset tsv file path. Each line is an email
-csvEmailsFilePath = "./data/enron_6_email_folders_KAMINSKI.tsv";
+csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
 
 class DatasetInfo():
@@ -23,15 +23,25 @@ class DatasetInfo():
 dataset_info = DatasetInfo()
 
 
-dataset_info.num_runs = 20
+dataset_info.num_runs = 1
 #-- Data 
-dataset_info.new_label_names = ['Save','DontSave']
+# dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
+dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
+
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
 #-- NN Arch
-dataset_info.num_hidden = 128
+dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
 
+### Experiment params validation and computed params
+if hasattr(dataset_info, 'labels_map') :
+    if hasattr(dataset_info, 'new_label_names'):
+        raise Exception("Cannot use both new_label_names and labels_map")
+    # Create new_label_names form labels_map unique values         
+    dataset_info.new_label_names = list(set(dataset_info.labels_map.values()))        
+
+    
 def select_best_features(dataset, train_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset
     if verbose:
@@ -162,9 +172,7 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
     features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     num_labels = len(label_names)
-    dataset_info.label_names = label_names
-    if dataset_info.new_label_names is not None:
-        label_names = dataset_info.new_label_names
+    dataset_info.label_names = label_names    
         
     dataset,train_label_list,test_label_list,num_labels = make_dataset(features,labels,dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
@@ -175,6 +183,9 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     predictions,acc = evaluate_mlp_model(dataset,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
+    
+    if dataset_info.new_label_names is not None:
+        label_names = dataset_info.new_label_names
     if verbose:
         print('\nConfusion matrix:')
         print(conf)
@@ -321,7 +332,7 @@ def output_runs_stat():
 
 test_accs = []
 for i in range(0,dataset_info.num_runs):
-    *dummy,test_acc = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True,verbose=True,select_best=4000)
+    *dummy,test_acc = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     test_accs.append(test_acc)
 
     if (run_baseline):

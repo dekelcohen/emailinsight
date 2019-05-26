@@ -22,6 +22,7 @@ from keras.layers.recurrent import LSTM,GRU
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
+from keras_metrics import precision,recall,f1
 
 # TODO: Try remove stopwords 
 #import nltk
@@ -190,9 +191,9 @@ def create_get_new_label_idx(dataset_info, new_total_labels):
     return get_new_label_idx
 
     
-def map_labels(Y_train,Y_test, dataset_info):
+def auto_map_labels(Y_train,Y_test, dataset_info):
     '''
-    map the new_total_labels
+    auto map the new_total_labels - permute labels and map each group to a new label 
     '''
     new_total_labels = len(dataset_info.new_label_names)
     old_num_labels = len(dataset_info.label_names)    
@@ -203,6 +204,31 @@ def map_labels(Y_train,Y_test, dataset_info):
     new_Y_train = list(map(get_new_label_idx, Y_train))
     new_Y_test = list(map(get_new_label_idx, Y_test))        
     return (new_Y_train, new_Y_test, new_total_labels)        
+
+def map_labels(Y_train,Y_test, dataset_info):
+    '''
+    Manually map labels according to user supplied labels_map
+    '''
+    # First map orig label idx (3) --> orig label name (ex: 'Inbox') --> new label name ('Save') --> new label idx
+    orig_label_idx_to_name = dict(zip(list(range(0,len(dataset_info.label_names))),dataset_info.label_names))     
+    new_label_to_idx = dict(zip(dataset_info.new_label_names, list(range(0,len(dataset_info.label_names)))))     
+    def get_new_label_idx(idx_orig_label):
+        orig_label = orig_label_idx_to_name[idx_orig_label] # 0 --> 'Inbox'
+        # If not found in labels_map, try to use 'all_others' key if exist
+        if orig_label in dataset_info.labels_map:
+            new_label = dataset_info.labels_map[orig_label] # { 'Inbox' : 'Save','Notes inbox' : 'Save', 'default_mapping' : 'DontSave' }
+        elif 'default_mapping' in dataset_info.labels_map:
+            new_label = dataset_info.labels_map['default_mapping']
+        else:
+            raise Exception("Failed to map %s"%(orig_label))
+        
+        new_label_idx = new_label_to_idx[new_label]    
+        return new_label_idx
+    
+    new_Y_train = list(map(get_new_label_idx, Y_train))
+    new_Y_test = list(map(get_new_label_idx, Y_test))        
+    new_total_labels = len(dataset_info.new_label_names)
+    return (new_Y_train, new_Y_test, new_total_labels)   
 
 def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
     '''
@@ -221,8 +247,11 @@ def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
     # Subsample dataset to get dataset_info.new_total_samples 
     (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
     # Map labels (ex: from folders to binary 2 folder groups)
-    (Y_train,Y_test, num_labels) = map_labels(Y_train,Y_test, dataset_info)
-    
+    if dataset_info.new_label_names and not hasattr(dataset_info,'labels_map'):
+        (Y_train,Y_test, num_labels) = auto_map_labels(Y_train,Y_test, dataset_info)
+    # Map labels manually    
+    if dataset_info.labels_map:
+        (Y_train,Y_test, num_labels) = map_labels(Y_train,Y_test, dataset_info)
     Y_train_c = np_utils.to_categorical(Y_train, num_labels)
     Y_test_c = np_utils.to_categorical(Y_test, num_labels)
     return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
@@ -308,7 +337,7 @@ def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout
         model.add(Dropout(dropout))
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=['accuracy',precision,recall,f1])
     callbacks = []
     if graph_to is not None:
         plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
@@ -317,7 +346,7 @@ def evaluate_mlp_model(dataset,num_classes,extra_layers=0,num_hidden=512,dropout
     score = model.evaluate(X_test, Y_test, batch_size=batch_size, verbose=1 if verbose else 0)
     if verbose:
         print('Test score:',score[0])
-        print('Test accuracy:', score[1])
+        print('Test accuracy: %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
     predictions = model.predict_classes(X_test,verbose=1 if verbose else 0)
     return predictions,score[1]
 
