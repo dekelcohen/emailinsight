@@ -27,11 +27,12 @@ class DatasetInfo():
 dataset_info = DatasetInfo()
 
 
-dataset_info.num_runs = 2
+dataset_info.num_runs = 1
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
+dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 650 }
+dataset_info.class_weight = { 'Save': 3 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
 #-- Metrics 

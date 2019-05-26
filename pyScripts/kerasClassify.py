@@ -163,7 +163,13 @@ def read_sequences(txtfile,verbose=True):
 def init_randomness(dataset_info):
     if hasattr(dataset_info, 'random_seed') and not dataset_info.random_seed is None:
         np.random.seed(dataset_info.random_seed)
-        
+
+def get_idx_to_new_label_dict(dataset_info):
+  '''
+  Return a dict that maps label idx to label name 0-->Save 1 --> DontSave ...
+  '''
+  return dict(zip(list(range(0,len(dataset_info.new_label_names))), dataset_info.new_label_names))             
+
 def auto_subsample_dataset(X,labels, dataset_info):
     '''
     Reduce dataset to dataset_info.new_total_samples, taking the same number of samples from every class.
@@ -185,7 +191,7 @@ def auto_subsample_dataset(X,labels, dataset_info):
             per_label_cnt[labels[i]] += 1
     return (np.array(new_X),new_labels)
 
-def subsample_dataset(X,labels, dataset_info):
+def subsample_dataset_by_label_stratified(X,labels, dataset_info):
     '''
     Reduce each label in dataset to specified amount in dataset_info.sub_sample_mapped_labels ex: { 'Save': 60 ,'DontSave' : 600 }
     '''
@@ -202,7 +208,7 @@ def subsample_dataset(X,labels, dataset_info):
         groupby_lbls[lbl_idx] = lbl_samples_idxs 
     
     # Undersample each label (in a loop) according to sub_sample_mapped_labels (above)
-    idx_to_new_label = dict(zip(list(range(0,len(dataset_info.label_names))), dataset_info.new_label_names))     
+    idx_to_new_label = get_idx_to_new_label_dict(dataset_info)     
     under_sample_idxs = [] # Holds all idx of samples (from all labels), selected to keep
     for lbl_idx, lbl_samples_idxs in groupby_lbls.items():
         lbl_sample_size = dataset_info.sub_sample_mapped_labels[idx_to_new_label[lbl_idx]]
@@ -210,6 +216,9 @@ def subsample_dataset(X,labels, dataset_info):
         under_sample_idxs += lbl_under_sample_idxs
     return (X[under_sample_idxs],[labels[sample_idx] for sample_idx in under_sample_idxs])
 
+def get_class_weight(dataset_info):
+    new_label_to_idx = dict(zip(dataset_info.new_label_names, list(range(0,len(dataset_info.new_label_names)))))
+    return { new_label_to_idx[lbl_name]:dataset_info.class_weight[lbl_name] for lbl_name in dataset_info.class_weight.keys()}
 
 def create_get_new_label_idx(dataset_info, new_total_labels):  
     permuted_old_label_idxs = np.random.permutation(len(dataset_info.label_names))
@@ -283,7 +292,7 @@ def make_dataset(features,labels,dataset_info,test_split=0.1,nb_words=1000):
         (Y_train,Y_test, num_labels) = map_labels(Y_train,Y_test, dataset_info)
     # Subsample manually according to [optional] sub_sample_mapped_labels. 
     # Note that train/test split (0.1) already occured (above) --> so only trainset is reduced 
-    (X_train,Y_train) = subsample_dataset(X_train,Y_train, dataset_info)
+    (X_train,Y_train) = subsample_dataset_by_label_stratified(X_train,Y_train, dataset_info)
     Y_train_c = np_utils.to_categorical(Y_train, num_labels)
     Y_test_c = np_utils.to_categorical(Y_test, num_labels)
     return ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
@@ -374,7 +383,8 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
     if graph_to is not None:
         plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
         callbacks = [plotter]
-    history = model.fit(X_train, Y_train, epochs=nb_epoch, batch_size=batch_size, verbose=1 if verbose else 0, validation_split=0.1,callbacks=callbacks)
+    history = model.fit(X_train, Y_train, epochs=nb_epoch, batch_size=batch_size, class_weight=get_class_weight(dataset_info), 
+                        verbose=1 if verbose else 0, validation_split=0.1,callbacks=callbacks)
     score = model.evaluate(X_test, Y_test, batch_size=batch_size, verbose=1 if verbose else 0)
     if verbose:
         print('Test score:',score[0])
