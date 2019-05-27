@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 
-def calc_roc_curve(dataset,predictions,model):  
+def calc_roc_curve(dataset,model):  
     (X_train, Y_train), (X_test, Y_test) = dataset  
     pred_probab = model.predict(X_test)
-    fpr, tpr, thresholds = roc_curve(predictions, pred_probab[:,0],  pos_label = 0) # idx label 0 is the positive class (e.g. 'Save')
+    fpr, tpr, thresholds = roc_curve(Y_test[:,1], pred_probab[:,0],  pos_label = 0) # idx label 0 is the positive class (e.g. 'Save')
     roc_auc = auc(fpr, tpr)
     return fpr, tpr, roc_auc, thresholds
 

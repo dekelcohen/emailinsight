@@ -32,7 +32,7 @@ dataset_info.num_runs = 1
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 650 }
+dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
 # dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
@@ -192,7 +192,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     predictions,test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
-    fpr, tpr, roc_auc, thresholds = calc_roc_curve(dataset,predictions,model)
+    fpr, tpr, roc_auc, thresholds = calc_roc_curve(dataset,model)
     if dataset_info.new_label_names is not None:
         label_names = dataset_info.new_label_names
     if verbose:
