@@ -14,6 +14,7 @@ import time
 
 import pandas as pd
 from keras_metrics import precision,recall,f1
+from my_metrics import calc_roc_curve, plot_roc_curve
 from debug_ml import explain_predictions
 
 # Dataset tsv file path. Each line is an email
@@ -31,7 +32,7 @@ dataset_info.num_runs = 1
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
+dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 650 }
 # dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
@@ -191,17 +192,21 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     predictions,test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
-    
+    fpr, tpr, roc_auc, thresholds = calc_roc_curve(dataset,predictions,model)
     if dataset_info.new_label_names is not None:
         label_names = dataset_info.new_label_names
     if verbose:
         print('\nConfusion matrix:')
-        print(conf)        
+        print(conf)    
+        print('ROC Curve:')
+        print('thresholds: %s fpr: %s tpr: %s roc_auc: %f' % (thresholds,fpr,tpr,roc_auc))
     if plot:
         plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
         plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
         # Explain important features
         explain_predictions(dataset,predictions,model,feature_names,label_names)
+        # ROC curve
+        plot_roc_curve(fpr, tpr, roc_auc)
     return dataset,train_label_list,test_label_list,test_metrics
 
 def test_features_words():
