@@ -188,7 +188,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if plot and select_best:
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
-    predictions,test_metrics,fn_predict_proba = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    predictions,test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
     
@@ -200,7 +200,8 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if plot:
         plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
         plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
-        explain_predictions(dataset,predictions,fn_predict_proba)
+        # Explain important features
+        explain_predictions(dataset,predictions,model,feature_names,label_names)
     return dataset,train_label_list,test_label_list,test_metrics
 
 def test_features_words():
