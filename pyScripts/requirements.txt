@@ -7,3 +7,4 @@ Orange==2.7.8
 python_dateutil==2.8.0
 heatmap==2.2.1
 scikit_learn==0.20.3
+lime==0.1.1.34

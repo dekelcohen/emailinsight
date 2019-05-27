@@ -14,7 +14,7 @@ import time
 
 import pandas as pd
 from keras_metrics import precision,recall,f1
-
+from debug_ml import explain_predictions
 
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
@@ -31,8 +31,8 @@ dataset_info.num_runs = 1
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 650 }
-dataset_info.class_weight = { 'Save': 3 ,'DontSave' : 1 }
+dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
+# dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
 #-- Metrics 
@@ -188,7 +188,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if plot and select_best:
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
-    predictions,test_metrics = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    predictions,test_metrics,fn_predict_proba = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
     
@@ -196,10 +196,11 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
         label_names = dataset_info.new_label_names
     if verbose:
         print('\nConfusion matrix:')
-        print(conf)
+        print(conf)        
     if plot:
         plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
         plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
+        explain_predictions(dataset,predictions,fn_predict_proba)
     return dataset,train_label_list,test_label_list,test_metrics
 
 def test_features_words():

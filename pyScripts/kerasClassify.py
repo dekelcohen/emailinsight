@@ -217,6 +217,9 @@ def subsample_dataset_by_label_stratified(X,labels, dataset_info):
     return (X[under_sample_idxs],[labels[sample_idx] for sample_idx in under_sample_idxs])
 
 def get_class_weight(dataset_info):
+    if not hasattr(dataset_info, 'class_weight') or dataset_info.class_weight is None:
+        return None
+    
     new_label_to_idx = dict(zip(dataset_info.new_label_names, list(range(0,len(dataset_info.new_label_names)))))
     return { new_label_to_idx[lbl_name]:dataset_info.class_weight[lbl_name] for lbl_name in dataset_info.class_weight.keys()}
 
@@ -390,7 +393,11 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
         print('Test score:',score[0])
         print('Test accuracy: %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
     predictions = model.predict_classes(X_test,verbose=1 if verbose else 0)
-    return predictions,score
+    
+    def predict_proba(X):
+        return model.predict(X,verbose=1 if verbose else 0)    
+    
+    return predictions,score,predict_proba
 
 def evaluate_recurrent_model(dataset,num_classes):
     (X_train, Y_train), (X_test, Y_test) = dataset

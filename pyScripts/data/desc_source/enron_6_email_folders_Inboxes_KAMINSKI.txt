@@ -1,0 +1,3 @@
+	const query = { customQuery: { collageUserId : 'KAMINSKI-V', folderName: { $in :  [ 'London', 'Australia', 'Stanford', 'Projects', 'Techmemos', 'resumes', 'Inbox',  'Notes inbox' ]} }};
+	
+	await writeFile(trainSetfilePath,`folderName\tupdateId\tsubject\tbody\tfrom\tfromDomain\tto\tcc\tdate\n`);
