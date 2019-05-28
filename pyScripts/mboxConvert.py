@@ -6,7 +6,8 @@ import dateutil.parser
 
 class parsedEmail():
 
-    def __init__(self,label,subject,sender,fromDomain,timeRec,content,words=None, to=None,cc=None):
+    def __init__(self, updateId, label,subject,sender,fromDomain,timeRec,content,words=None, to=None,cc=None):
+        self.updateId = updateId
         self.label = label
         self.subject = subject
         self.sender = sender
@@ -20,6 +21,10 @@ class parsedEmail():
         self.hour = timeRec[4]
         self.content = content
         self.words = words
+
+    def __iter__(self):
+        return iter([self.updateId, self.label, self.subject, self.sender, self.fromDomain, self.to,
+                     self.cc, self.day, self.date, self.month, self.year, self.hour, self.content, self.words])
 
 evilSubstringsRegex = ['<html>.*</html>',\
                        '=20(.*\n)*=20',\
@@ -53,38 +58,41 @@ def parseEmailsCSV(csvEmailsFilePath,printInfo=True):
         reader = csv.DictReader(tsvfile, dialect='excel-tab')
         count = 0;
         for row in reader:
-            category =row['folderName']
-            subject = row['subject']
-            body = row['body']            
-            sender = row['from']
-            fromDomain = row['fromDomain']
-            try:
-                date = dateutil.parser.parse(row['date'])
-            except:
-                print('except: row[date]='%str(row['date']))
-            if date is None:
-                continue
-            dateParts = [date.day,date,date.month,date.year,date.hour]                
-            count+=1
-            # dict of <word,count>
-            splitted  = body.split(" ")
-            messageWords = list(filter(None,splitted))
-            wordCount = {}
-            for word in messageWords:
-                if word=='-----Original Message-----':
-                    break
-                if len(word)==0 or '\r' in word or '=' in word \
-                   or '#' in word or '&' in word or word[0].isupper():
-                    continue
-                word = re.sub('[|;\"\'\>\<\'\)\(,.?!\n]','',word)
-                if len(word)>3:
-                    addToCountDict(word,wordCount)
-            email = parsedEmail(category,subject,sender,fromDomain,\
-                                    dateParts,body,wordCount, to=row['to'], cc=row['cc'])
+            email = parseEmailCSV(row)
             emails.append(email)
             if printInfo:
-                print ('Parsed %d emails\n'%count)
+                print('Parsed %d emails\n'%count)
     return emails
+
+def parseEmailCSV(email):
+    updateId = email['updateId']
+    category = email['folderName']
+    subject = email['subject']
+    body = email['body']
+    sender = email['from']
+    fromDomain = email['fromDomain']
+    try:
+        date = dateutil.parser.parse(email['date'])
+    except:
+        print('except: row[date]='%str(email['date']))
+    if date is None:
+        return
+    dateParts = [date.day,date,date.month,date.year,date.hour]
+    # dict of <word,count>
+    splitted  = body.split(" ")
+    messageWords = list(filter(None,splitted))
+    wordCount = {}
+    for word in messageWords:
+        if word=='-----Original Message-----':
+            break
+        if len(word)==0 or '\r' in word or '=' in word \
+           or '#' in word or '&' in word or word[0].isupper():
+            continue
+        word = re.sub('[|;\"\'\>\<\'\)\(,.?!\n]','',word)
+        if len(word)>3:
+            addToCountDict(word,wordCount)
+    parsed_email = parsedEmail(updateId, category,subject,sender,fromDomain,dateParts,body,wordCount, to=email['to'], cc=email['cc'])
+    return parsed_email
 
 def parseEmails(folder,printInfo=True):
     files = os.listdir(folder)
@@ -113,6 +121,7 @@ def parseEmails(folder,printInfo=True):
         	            labels.remove('Starred')
                 category = labels[0]
                 subject = message['subject']
+                updateId = message['updateId']
                 try:
                   sender = re.sub('[\-=|;\"\>\<\'\)\(,.?!\n\r\t]','',message['from'])
                 except:
@@ -149,7 +158,7 @@ def parseEmails(folder,printInfo=True):
                             if len(word)>3:
                                 addToCountDict(word,wordCount)
                         count+=1
-                        email = parsedEmail(category,subject,sender,senderDomain,\
+                        email = parsedEmail(updateId, category,subject,sender,senderDomain,\
                                                 dateParts,messageContent,wordCount)
                         emails.append(email)
                     if printInfo:
@@ -161,7 +170,7 @@ def getEmailStats(emails):
     domainCount = {}
     totalWordsCounts = {}
     labels = []
-    for email in emails:
+    for index, email in emails.iterrows():
         addToCountDict(email.sender,fromCount)
         addToCountDict(email.fromDomain,domainCount)
         if email.label not in labels:

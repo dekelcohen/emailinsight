@@ -43,6 +43,8 @@ dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
 #TODO: dataset_info.random_seed = 42 # Used to make random splits reproducible
 
+#--force papulate cache
+dataset_info.force_papulate_cache = False
 ### Experiment params validation and computed params
 if hasattr(dataset_info, 'labels_map') :
     if hasattr(dataset_info, 'new_label_names'):
@@ -347,6 +349,8 @@ def output_runs_stat(df_test_metrics):
 
 # Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
 import io
+from datetime import datetime
+start_time = datetime.now()
 metrics_columns=[mtr[0] for mtr in dataset_info.metrics]
 metrics_columns.insert(0,'score')
 metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
@@ -374,3 +378,5 @@ for i in range(0,dataset_info.num_runs):
 
 output_runs_stat(df_test_metrics)
 
+time_elapsed = datetime.now() - start_time
+print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
