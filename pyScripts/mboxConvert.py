@@ -178,6 +178,8 @@ def getEmailStats(emails):
             labels.append(email.label)
 
         words = email.words
+        if type(words) == str:
+            words = eval(words)
         for word in words:
             if word not in totalWordsCounts and word not in labels:
                 totalWordsCounts[word]=0

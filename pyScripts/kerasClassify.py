@@ -74,7 +74,6 @@ def get_word_features(emails, verbose=True, nb_words=5000, skip_top=0, maxlen=No
             continue
         text = email.sender + " " + str(email.subject) + " "
         text += email.fromDomain
-        text += email.updateId
         if email.to != None:
             text += email.to + " "
         if email.cc != None:
@@ -340,14 +339,12 @@ def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='bin
             write_csv(cachefile, parsedEmails, verbose=verbose)
             write_info(infofile, label_names)
     else:
-        cacheData = pd.read_csv(cachefile, header=0)
-        cachedEmail = pd.merge(cacheData, emails, on="updateId", how='right')
+        cacheData = pd.read_csv(cachefile, header=0, keep_default_na=False)
+        cachedEmail = cacheData[(cacheData.updateId.isin(emails.updateId))]
         noCachedEmail = emails[(~emails.updateId.isin(cacheData.updateId))]
         if not noCachedEmail.empty:
             raise Exception('Found emails not in cache')
-        # parse records to parsedEmails class
-        parsedEmails = convert_emails(emails[(emails.updateId.isin(cachedEmail.updateId))])
-        updateIds, features, labels, feature_names, label_names = get_word_features(parsedEmails, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
+        updateIds, features, labels, feature_names, label_names = get_word_features(cachedEmail, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
     return features, labels, feature_names, label_names
 
 def get_my_data(per_label=False):
