@@ -6,25 +6,27 @@ import dateutil.parser
 
 class parsedEmail():
 
-    def __init__(self, updateId, label,subject,sender,fromDomain,timeRec,content,words=None, to=None,cc=None):
+    def __init__(self, updateId, label,subject,sender,fromDomain,timeRec,content,words=None, to=None,toDomain=None,cc=None,ccDomain=None):
         self.updateId = updateId
         self.label = label
         self.subject = subject
         self.sender = sender
         self.fromDomain = fromDomain
         self.to = to
+        self.toDomain = toDomain
         self.cc = cc
+        self.ccDomain = ccDomain
         self.day = timeRec[0]
         self.date = timeRec[1]
         self.month = timeRec[2]
         self.year = timeRec[3]
         self.hour = timeRec[4]
         self.content = content
-        self.words = words
+        self.words = words        
 
     def __iter__(self):
-        return iter([self.updateId, self.label, self.subject, self.sender, self.fromDomain, self.to,
-                     self.cc, self.day, self.date, self.month, self.year, self.hour, self.content, self.words])
+        return iter([self.updateId, self.label, self.subject, self.sender, self.fromDomain, self.to,self.toDomain,
+                     self.cc, self.ccDomain, self.day, self.date, self.month, self.year, self.hour, self.content, self.words])
 
 evilSubstringsRegex = ['<html>.*</html>',\
                        '=20(.*\n)*=20',\
@@ -70,7 +72,7 @@ def parseEmailCSV(email):
     subject = email['subject']
     body = email['body']
     sender = email['from']
-    fromDomain = email['fromDomain']
+    fromDomain = email['fromDomain']    
     try:
         date = dateutil.parser.parse(email['date'])
     except:
@@ -91,7 +93,7 @@ def parseEmailCSV(email):
         word = re.sub('[|;\"\'\>\<\'\)\(,.?!\n]','',word)
         if len(word)>3:
             addToCountDict(word,wordCount)
-    parsed_email = parsedEmail(updateId, category,subject,sender,fromDomain,dateParts,body,wordCount, to=email['to'], cc=email['cc'])
+    parsed_email = parsedEmail(updateId, category,subject,sender,fromDomain,dateParts,body,wordCount, to=email['to'], toDomain=email['toDomain'], cc=email['cc'], ccDomain=email['ccDomain'])
     return parsed_email
 
 def parseEmails(folder,printInfo=True):

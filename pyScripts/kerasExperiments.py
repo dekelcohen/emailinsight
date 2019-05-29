@@ -34,7 +34,7 @@ dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 dataset_info.test_split = 0.1
 #-- Metrics 
 dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
-dataset_info.report_metrics=['tpr','fpr','roc_auc', 'accuracy','precision','recall','f_score']
+dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'] # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)
 #-- NN Arch
 dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5

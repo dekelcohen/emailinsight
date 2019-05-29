@@ -74,10 +74,13 @@ def get_word_features(emails, verbose=True, nb_words=5000, skip_top=0, maxlen=No
             continue
         text = email.sender + " " + str(email.subject) + " "
         text += email.fromDomain
-        if email.to != None:
+        if email.to:
             text += email.to + " "
-        if email.cc != None:
+#            text += email.toDomain + " "
+        if email.cc:
             text += email.cc + " "
+#            text += email.ccDomain + " "           
+            
         text += email.content
         texts.append(text.replace('\n', '').replace('\r', ''))
         emailLabels.append(labelNums[email.label])
@@ -322,7 +325,7 @@ def get_emails(emailsFilePath,verbose=True):
 def convert_emails(emails):
     parsedEmails = emails.apply(lambda email: parseEmailCSV(email), axis=1)
     dataframe_emails = pd.DataFrame.from_records(parsedEmails,
-                              columns=["updateId", "label", "subject", "sender", "fromDomain", "to", "cc", "day",
+                              columns=["updateId", "label", "subject", "sender", "fromDomain", "to","toDomain", "cc","ccDomain", "day",
                                        "date", "month", "year", "hour", "content", "words"])
     return dataframe_emails
 
