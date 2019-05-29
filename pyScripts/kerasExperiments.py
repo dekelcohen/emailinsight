@@ -14,29 +14,30 @@ import time
 
 import pandas as pd
 from keras_metrics import precision,recall,f1
-from my_metrics import calc_roc_curve, plot_roc_curve
+from my_metrics import get_roc_info, plot_roc_curve
 from debug_ml import explain_predictions
 
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
 
-class DatasetInfo():
+class MyObj():
     def __init__(self):
         pass
     
-dataset_info = DatasetInfo()
-
+dataset_info = MyObj()
+dataset_info.new_metrics = MyObj() # metrics (inc ROC related fpr,tpr ....)
 
 dataset_info.num_runs = 1
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
 dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
-# dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
+dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
 #-- Metrics 
+dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
 dataset_info.metrics=[('accuracy', 'accuracy'),('precision', precision),('recall', recall),('f1', f1)]
 #-- NN Arch
 dataset_info.num_hidden = 512
@@ -181,34 +182,45 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
     return accuracy
 
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
+    # Prepare features
     features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     num_labels = len(label_names)
     dataset_info.label_names = label_names    
-        
+    # Create dataset including splits, sub sampling, labels mapping    
     dataset,train_label_list,test_label_list,num_labels = make_dataset(features,labels,dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
         dataset,scores = select_best_features(dataset,train_label_list,select_best,verbose=verbose)
     if plot and select_best:
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
-    predictions,test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    
+    # Train a model    
+    test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    
+    # Evaluate: ROC, confusion matrix, plots
+    predictions = get_roc_info(dataset,model,dataset_info)
     conf = confusion_matrix(test_label_list,predictions)
     conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
-    fpr, tpr, roc_auc, thresholds = calc_roc_curve(dataset,model)
     if dataset_info.new_label_names is not None:
         label_names = dataset_info.new_label_names
     if verbose:
-        print('\nConfusion matrix:')
+        nm = dataset_info.new_metrics
+        print('\nConfusion matrix: (sel_thres=%f, sel_tpr %f, sel_fpr %f)' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr))
         print(conf)    
-        print('ROC Curve:')
-        print('thresholds: %s fpr: %s tpr: %s roc_auc: %f' % (thresholds,fpr,tpr,roc_auc))
+        print('\nOld Confusion matrix (thres=0.5):')        
+        _, (X_test, Y_test) = dataset  
+        predictions = model.predict_classes(X_test)
+        conf2 = confusion_matrix(test_label_list,predictions)
+        print(conf2)                    
+        print('ROC Curve:')        
+        # print('sel_thres %f, sel_tpr %f, sel_fpr %f,thresholds: %s fpr: %s tpr: %s' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr,nm.thresholds,nm.fpr,nm.tpr))
     if plot:
         plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
         plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
         # Explain important features
         explain_predictions(dataset,predictions,model,feature_names,label_names)
         # ROC curve
-        plot_roc_curve(fpr, tpr, roc_auc)
+        plot_roc_curve(dataset_info.new_metrics)
     return dataset,train_label_list,test_label_list,test_metrics
 
 def test_features_words():

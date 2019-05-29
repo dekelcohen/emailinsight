@@ -411,10 +411,9 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
     score = model.evaluate(X_test, Y_test, batch_size=batch_size, verbose=1 if verbose else 0)
     if verbose:
         print('Test score:',score[0])
-        print('Test accuracy: %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
-    predictions = model.predict_classes(X_test,verbose=1 if verbose else 0)
-            
-    return predictions,score,model
+        print('Test accuracy (thresh=0.5): %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
+                
+    return score,model
 
 def evaluate_recurrent_model(dataset,num_classes):
     (X_train, Y_train), (X_test, Y_test) = dataset
