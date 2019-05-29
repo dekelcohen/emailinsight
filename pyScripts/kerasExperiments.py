@@ -13,20 +13,16 @@ import numpy as np
 import time
 
 import pandas as pd
-from keras_metrics import precision,recall,f1
-from my_metrics import get_roc_info, plot_roc_curve
+from hpyutils import MyObj
+from my_metrics import calc_metrics, print_metrics, plot_metrics
 from debug_ml import explain_predictions
 
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
 
-class MyObj():
-    def __init__(self):
-        pass
     
 dataset_info = MyObj()
-dataset_info.new_metrics = MyObj() # metrics (inc ROC related fpr,tpr ....)
 
 dataset_info.num_runs = 1
 #-- Data 
@@ -38,7 +34,7 @@ dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 dataset_info.test_split = 0.1
 #-- Metrics 
 dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
-dataset_info.metrics=[('accuracy', 'accuracy'),('precision', precision),('recall', recall),('f1', f1)]
+dataset_info.report_metrics=['tpr','fpr','roc_auc', 'accuracy','precision','recall','f_score']
 #-- NN Arch
 dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
@@ -87,17 +83,6 @@ def plot_feature_scores(feature_names,scores,limit_to=None,save_to=None,best=Tru
     if save_to is not None:
         plt.savefig(save_to,bbox_inches='tight')
 
-def plot_confusion_matrix(cm, label_names, title='Confusion matrix', cmap=plt.cm.Blues, save_to = None):
-    plt.figure()
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
-    plt.title(title)
-    tick_marks = np.arange(len(label_names))
-    plt.xticks(tick_marks, label_names, rotation='vertical')
-    plt.yticks(tick_marks, label_names)
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    if save_to is not None:
-        plt.savefig(save_to,bbox_inches='tight')
 
 def make_plot(x,y,title=None,x_name=None,y_name=None,save_to=None,color='b',new_fig=True):
     if new_fig:
@@ -198,30 +183,19 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     
     # Evaluate: ROC, confusion matrix, plots
-    predictions = get_roc_info(dataset,model,dataset_info)
-    conf = confusion_matrix(test_label_list,predictions)
-    conf_normalized = conf.astype('float') / conf.sum(axis=1)[:, np.newaxis]
+    new_metrics,predictions = calc_metrics(dataset,model,dataset_info)
+    
+    # Verbose print and plot
     if dataset_info.new_label_names is not None:
         label_names = dataset_info.new_label_names
-    if verbose:
-        nm = dataset_info.new_metrics
-        print('\nConfusion matrix: (sel_thres=%f, sel_tpr %f, sel_fpr %f)' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr))
-        print(conf)    
-        print('\nOld Confusion matrix (thres=0.5):')        
-        _, (X_test, Y_test) = dataset  
-        predictions = model.predict_classes(X_test)
-        conf2 = confusion_matrix(test_label_list,predictions)
-        print(conf2)                    
-        print('ROC Curve:')        
-        # print('sel_thres %f, sel_tpr %f, sel_fpr %f,thresholds: %s fpr: %s tpr: %s' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr,nm.thresholds,nm.fpr,nm.tpr))
+    if verbose:        
+        print_metrics(new_metrics)
     if plot:
-        plot_confusion_matrix(conf, label_names,save_to=plot_prefix+'conf.png')
-        plot_confusion_matrix(conf_normalized, label_names, save_to=plot_prefix+'conf_normalized.png',title='Normalized Confusion Matrix')
+        plot_metrics(new_metrics,label_names)
         # Explain important features
-        explain_predictions(dataset,predictions,model,feature_names,label_names)
-        # ROC curve
-        plot_roc_curve(dataset_info.new_metrics)
-    return dataset,train_label_list,test_label_list,test_metrics
+        # explain_predictions(dataset,predictions,model,feature_names,label_names)
+        
+    return dataset,train_label_list,test_label_list,new_metrics
 
 def test_features_words():
     #get emails once to pickle
@@ -354,23 +328,21 @@ run_baseline = False
 
 # TODO: try ftype = 'tfidf'
 
-def output_runs_stat(df_test_metrics):    
-    if dataset_info.num_runs > 1:    
-        print('Test runs stats:')
-        print(df_test_metrics.describe())        
+def output_runs_stat(df_test_metrics):        
+    print('Test runs stats:')
+    print(df_test_metrics.describe())
 
 # Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
 import io
 from datetime import datetime
 start_time = datetime.now()
-metrics_columns=[mtr[0] for mtr in dataset_info.metrics]
-metrics_columns.insert(0,'score')
+metrics_columns=[mtr_name for mtr_name in dataset_info.report_metrics]
 metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
 df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
 
 for i in range(0,dataset_info.num_runs):
-    *dummy,test_metrics = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
-    df_test_metrics.loc[i] = test_metrics
+    *dummy,new_metrics = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+    df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
 
     if (run_baseline):

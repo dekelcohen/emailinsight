@@ -398,7 +398,7 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
         model.add(Dropout(dropout))
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=[mtr[1] for mtr in dataset_info.metrics])
+    model.compile(loss='categorical_crossentropy', optimizer='adam',  metrics=['accuracy'])
     callbacks = []
     if graph_to is not None:
         plotter = Plotter(save_to_filepath=graph_to, show_plot_window=True)
@@ -408,7 +408,7 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
     score = model.evaluate(X_test, Y_test, batch_size=batch_size, verbose=1 if verbose else 0)
     if verbose:
         print('Test score:',score[0])
-        print('Test accuracy (thresh=0.5): %f precision: %f,recall: %f,f1: %f' % (score[1],score[2],score[3],score[4]))        
+        print('Test accuracy (thresh=0.5): %f' % (score[1]))        
                 
     return score,model
 
