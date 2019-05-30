@@ -7,6 +7,7 @@ import os
 import time
 import pprint
 import pickle
+import json
 
 from keras.callbacks import RemoteMonitor
 from keras.preprocessing import sequence
@@ -24,16 +25,21 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten
 
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 
+stopwords_lst = None
 
-# TODO: Try remove stopwords 
-#import nltk
-#from nltk.corpus import stopwords
-#nltk.download("stopwords")
-#eng_stopwords = set(stopwords.words("english"))
+def get_stopwords_list():
+    global stopwords_lst
+    if not stopwords_lst is None:
+        return stopwords_lst
+    # Load stopwords (TODO: lang)
+    with open('./data/stopwords/eng/stopwords.json',  encoding="utf8") as fp:
+        stopwords_lst = set(json.load(fp))    
+    return stopwords_lst
+
 
 from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 
-def get_word_features(emails, verbose=True, nb_words=5000, skip_top=0, maxlen=None, as_matrix=True, matrix_type='count',
+def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top=0, maxlen=None, as_matrix=True, matrix_type='count',
                       label_cutoff=0.01, max_n=1):
     (totalWordsCount, fromCount, domainCount, labels) = getEmailStats(emails)
     if verbose:
@@ -93,6 +99,11 @@ def get_word_features(emails, verbose=True, nb_words=5000, skip_top=0, maxlen=No
         word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
         if as_matrix:
             feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
+            if getattr(dataset_info,'remove_stopwords', False):
+                stopwords_list = get_stopwords_list()
+                stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
+                feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
+                word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
             return updateIds, feature_matrix, emailLabels, word_list, labels
         else:
             sequences = tokenizer.texts_to_sequences(texts)
@@ -335,7 +346,8 @@ def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='bin
     emails = pd.read_csv(emailsFilePath, header=0, sep='\t', keep_default_na=False)
     if dataset_info.force_papulate_cache or (not dataset_info.force_papulate_cache and not os.path.isfile(cachefile)):
         parsedEmails = convert_emails(emails)
-        updateIds, features, labels, feature_names, label_names = get_word_features(parsedEmails, nb_words=num_words,
+        updateIds, features, labels, feature_names, label_names = get_word_features(parsedEmails,dataset_info,
+                                                                                    nb_words=num_words,
                                                                                     matrix_type=matrix_type,
                                                                                     verbose=verbose, max_n=max_n)
         if max_n == 1:
@@ -347,7 +359,7 @@ def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='bin
         noCachedEmail = emails[(~emails.updateId.isin(cacheData.updateId))]
         if not noCachedEmail.empty:
             raise Exception('Found emails not in cache')
-        updateIds, features, labels, feature_names, label_names = get_word_features(cachedEmail, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
+        updateIds, features, labels, feature_names, label_names = get_word_features(cachedEmail, dataset_info,nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
     return features, labels, feature_names, label_names
 
 def get_my_data(per_label=False):

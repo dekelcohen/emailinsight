@@ -25,6 +25,8 @@ csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 dataset_info = MyObj()
 
 dataset_info.num_runs = 1
+# PreProcessing
+dataset_info.remove_stopwords = False # remove stopwords (english only for now)
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
@@ -364,3 +366,6 @@ output_runs_stat(df_test_metrics)
 
 time_elapsed = datetime.now() - start_time
 print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+
+
+# df_test_metrics[['accuracy','precision','recall','sel_tpr','roc_auc']].describe()
