@@ -82,10 +82,12 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
         text += email.fromDomain
         if email.to:
             text += email.to + " "
-#            text += email.toDomain + " "
+            if getattr(dataset_info,'toccDomains', False): 
+                text += email.toDomain + " "
         if email.cc:
             text += email.cc + " "
-#            text += email.ccDomain + " "           
+            if getattr(dataset_info,'toccDomains', False): 
+                text += email.ccDomain + " "           
             
         text += email.content
         texts.append(text.replace('\n', '').replace('\r', ''))

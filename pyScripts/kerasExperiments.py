@@ -27,10 +27,12 @@ dataset_info = MyObj()
 dataset_info.num_runs = 1
 # PreProcessing
 dataset_info.remove_stopwords = False # remove stopwords (english only for now)
+# Features
+dataset_info.toccDomains = False # Use to and cc email domains as features 
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-dataset_info.sub_sample_mapped_labels = { 'Save': 250 ,'DontSave' : 250 }
+dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
 dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
