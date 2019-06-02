@@ -26,7 +26,7 @@ dataset_info = MyObj()
 
 dataset_info.num_runs = 20
 # PreProcessing
-dataset_info.remove_stopwords = False # remove stopwords (english only for now)
+dataset_info.remove_stopwords = True # remove stopwords (english only for now)
 dataset_info.vocab_size = 10000
 # Features
 dataset_info.toccDomains = True # Use to and cc email domains as features 
@@ -176,7 +176,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     #features_before,labels_before,feature_names_before,label_names_before = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     # TODO:Debug:Remove: Remove diff call 
     #dataset_info.toccDomains = True
-    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
+    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=2)
     #print('Feature words added by toccDomains=True\n%s' % (set(feature_names) - set(feature_names_before)))
     #deleted_features = list(set(feature_names_before) - set(feature_names))
     #print('Feature words deleted by toccDomains=True\n%s' % (deleted_features))
