@@ -24,11 +24,12 @@ csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
     
 dataset_info = MyObj()
 
-dataset_info.num_runs = 1
+dataset_info.num_runs = 20
 # PreProcessing
 dataset_info.remove_stopwords = False # remove stopwords (english only for now)
+dataset_info.vocab_size = 10000
 # Features
-dataset_info.toccDomains = False # Use to and cc email domains as features 
+dataset_info.toccDomains = True # Use to and cc email domains as features 
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
@@ -172,9 +173,21 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
 
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
     # Prepare features
+    #features_before,labels_before,feature_names_before,label_names_before = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
+    # TODO:Debug:Remove: Remove diff call 
+    #dataset_info.toccDomains = True
     features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
+    #print('Feature words added by toccDomains=True\n%s' % (set(feature_names) - set(feature_names_before)))
+    #deleted_features = list(set(feature_names_before) - set(feature_names))
+    #print('Feature words deleted by toccDomains=True\n%s' % (deleted_features))
+    #** Add back deleted features 
+    #deleted_feature_idxs_before = np.where(np.isin(feature_names_before,deleted_features))[0]
+    #feature_names = feature_names + deleted_features
+    #features = np.concatenate((features, features_before[:,deleted_feature_idxs_before]), axis=1)    
+    
     num_labels = len(label_names)
     dataset_info.label_names = label_names    
+    
     # Create dataset including splits, sub sampling, labels mapping    
     dataset,train_label_list,test_label_list,num_labels = make_dataset(features,labels,dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
@@ -345,7 +358,7 @@ metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
 df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
 
 for i in range(0,dataset_info.num_runs):
-    *dummy,new_metrics = run_once(num_words=10000,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
 

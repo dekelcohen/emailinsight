@@ -14,7 +14,7 @@ from hpyutils import MyObj, setattrs
 
 def calc_roc_curve(dataset,pred_probab):  
     (X_train, Y_train), (X_test, Y_test) = dataset      
-    fpr, tpr, thresholds = roc_curve(Y_test[:,1], pred_probab[:,0],  pos_label = 0) # idx label 0 is the positive class (e.g. 'Save')
+    fpr, tpr, thresholds = roc_curve(Y_test[:,1], pred_probab[:,0],  pos_label = 0,drop_intermediate=False) # idx label 0 is the positive class (e.g. 'Save')
     roc_auc = auc(fpr, tpr)
     return fpr, tpr, roc_auc, thresholds
 
