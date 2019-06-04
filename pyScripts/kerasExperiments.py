@@ -27,7 +27,10 @@ dataset_info = MyObj()
 dataset_info.num_runs = 20
 # PreProcessing
 dataset_info.remove_stopwords = True # remove stopwords (english only for now)
+dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
 dataset_info.vocab_size = 10000
+dataset_info.feature_type = 'tfidf' # Type of feature in matrix: binary (0/1), tfidf, count
+dataset_info.use_keras_tokenizer = False
 # Features
 dataset_info.toccDomains = True # Use to and cc email domains as features 
 #-- Data 
@@ -176,7 +179,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     #features_before,labels_before,feature_names_before,label_names_before = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     # TODO:Debug:Remove: Remove diff call 
     #dataset_info.toccDomains = True
-    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=2)
+    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
     #print('Feature words added by toccDomains=True\n%s' % (set(feature_names) - set(feature_names_before)))
     #deleted_features = list(set(feature_names_before) - set(feature_names))
     #print('Feature words deleted by toccDomains=True\n%s' % (deleted_features))
@@ -358,7 +361,7 @@ metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
 df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
 
 for i in range(0,dataset_info.num_runs):
-    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
 

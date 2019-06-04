@@ -94,7 +94,8 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
         emailLabels.append(labelNums[email.label])
         updateIds.append(email.updateId)
     emailLabels = np.array(emailLabels)
-    if max_n == 1 or not as_matrix:
+    if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
+        print('Using Keras Tokenizer')
         tokenizer = Tokenizer(nb_words)
         tokenizer.fit_on_texts(texts)
         reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
@@ -111,12 +112,15 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
             sequences = tokenizer.texts_to_sequences(texts)
             return updateIds, sequences, emailLabels, word_list, labels
     else:
+        stopwords_list = None
+        if getattr(dataset_info,'remove_stopwords', False):
+            stopwords_list = list(get_stopwords_list())                
         if matrix_type == 'tfidf':
-            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words)
+            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
         else:
-            vectorizer = CounterVectorizer(ngram_range=(1, max_n), max_features=nb_words,
-                                           binary=matrix_type == 'binary')
+            vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
         feature_matrix = vectorizer.fit_transform(texts)
+        feature_matrix = feature_matrix.todense()
         word_list = vectorizer.get_feature_names()
         return updateIds, feature_matrix, emailLabels, word_list, labels
 
@@ -398,8 +402,8 @@ def evaluate_mlp_model(dataset,dataset_info,num_classes,extra_layers=0,num_hidde
     nb_epoch = 7
             
     if verbose:
-        print(len(X_train), 'train sequences')
-        print(len(X_test), 'test sequences')
+        print(X_train.shape[0], 'train sequences')
+        print(X_test.shape[0], 'test sequences')
         print('X_train shape:', X_train.shape)
         print('X_test shape:', X_test.shape)
         print('Y_train shape:', Y_train.shape)
