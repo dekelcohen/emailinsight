@@ -4,6 +4,7 @@ from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
+from keras.utils import np_utils
 
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import label_binarize
@@ -20,7 +21,40 @@ from debug_ml import explain_predictions
 # Dataset tsv file path. Each line is an email
 csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
+class Dataset():
+    def __init__(self):
+        pass
 
+    def get_df(self):
+        return self.df
+
+    def get_X_train(self):
+        return self.df[~self.df[getattr(self, 'train_col_name', 'train_index')].isnull()].sort_values(by=['train_index'])
+
+    def get_X_test(self):
+        return self.df[~self.df['test_index'].isnull()].sort_values(by=['test_index'])
+
+    def get_Y_train(self, X_train, to_categorical=False, num_labels=0):
+        Y_train = X_train[getattr(self, 'label_col_name', 'label')].tolist()
+        if (to_categorical):
+            return np_utils.to_categorical(Y_train, num_labels)
+        return Y_train
+
+    def get_Y_test(self, X_test, to_categorical=False, num_labels=0):
+        Y_test = X_test[getattr(self, 'label_col_name', 'label')].tolist()
+        if (to_categorical):
+            return np_utils.to_categorical(Y_test, num_labels)
+        return Y_test
+
+    def get_dataset(self, to_categorical=False, num_labels=0):
+        X_train = self.get_X_train()
+        X_test = self.get_X_test()
+        Y_train = self.get_Y_train(X_train, to_categorical=to_categorical, num_labels=num_labels)
+        Y_test = self.get_Y_test(X_test, to_categorical=to_categorical, num_labels=num_labels)
+        if hasattr(self, 'selected_features_idxs'):
+            X_train = X_train.iloc[:, self.selected_features_idxs]
+            X_test = X_test.iloc[:, self.selected_features_idxs]
+        return (np.array(X_train.filter(regex=r'^feature_', axis=1)), Y_train), (X_test.filter(regex=r'^feature_', axis=1), Y_test)
     
 dataset_info = MyObj()
 
@@ -55,17 +89,17 @@ if hasattr(dataset_info, 'labels_map') :
     if hasattr(dataset_info, 'new_label_names'):
         raise Exception("Cannot use both new_label_names and labels_map")
     # Create new_label_names form labels_map unique values         
-    dataset_info.new_label_names = list(set(dataset_info.labels_map.values()))        
+    dataset_info.new_label_names = list(set(dataset_info.labels_map.values()))
 
-    
-def select_best_features(dataset, train_labels, num_best, verbose=True):
-    (X_train, Y_train), (X_test, Y_test) = dataset
+def select_best_features(dataset_info, num_labels, num_best, verbose=True):
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     if verbose:
         print('\nSelecting %d best features\n'%num_best)
     selector = SelectKBest(chi2, k=num_best)
-    X_train = selector.fit_transform(X_train,train_labels)
-    X_test = selector.transform(X_test)
-    return ((X_train, Y_train), (X_test, Y_test)),selector.scores_
+    selector.fit_transform(X_train, Y_train)
+    dataset_info.selected_features_idxs = selector.get_support(indices=True).tolist()
+
+    return selector.scores_
 
 def plot_feature_scores(feature_names,scores,limit_to=None,save_to=None,best=True):
     plt.figure()
@@ -127,47 +161,47 @@ def make_plots(xs,ys,labels,title=None,x_name=None,y_name=None,y_bounds=None,sav
         plt.savefig(save_to,bbox_inches='tight')
     plt.hold(False)
 
-def get_baseline_dummy(dataset,train_label_list,test_label_list,verbose=True):
-    (X_train, Y_train), (X_test, Y_test) = dataset
+def get_baseline_dummy(dataset_info, num_labels,verbose=True):
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     dummy = DummyClassifier()
-    dummy.fit(X_train,train_label_list)
+    dummy.fit(X_train,dataset_info.ds.get_Y_train(X_train))
     predictions = dummy.predict(X_test)
-    accuracy = accuracy_score(test_label_list,predictions)
+    accuracy = accuracy_score(dataset_info.ds.get_Y_test(X_test),predictions)
     
     if verbose:
         print('Got baseline of %f with dummy classifier'%accuracy)
 
     return accuracy
 
-def get_baseline_svm(dataset,train_label_list,test_label_list,verbose=True):
-    (X_train, Y_train), (X_test, Y_test) = dataset
+def get_baseline_svm(dataset_info,verbose=True):
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     linear = LinearSVC(penalty='l1',dual=False)
     grid_linear = GridSearchCV(linear, {'C':[0.1, 0.5, 1, 5, 10]}, cv=5)
-    grid_linear.fit(X_train,train_label_list)
-    accuracy = grid_linear.score(X_test, test_label_list)
+    grid_linear.fit(X_train,dataset_info.ds.get_Y_train(X_train))
+    accuracy = grid_linear.score(X_test, dataset_info.ds.get_Y_test(X_train))
     
     if verbose:
         print('Got baseline of %f with svm classifier'%accuracy)
 
     return accuracy
 
-def get_baseline_knn(dataset,train_label_list,test_label_list,verbose=True):
-    (X_train, Y_train), (X_test, Y_test) = dataset
+def get_baseline_knn(dataset_info,num_labels,verbose=True):
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     knn = KNeighborsClassifier(n_neighbors=100,n_jobs=-1)
-    knn.fit(X_train,train_label_list)
+    knn.fit(X_train,dataset_info.ds.get_Y_train(X_train))
     predictions = np.round(knn.predict(X_test))
-    accuracy = accuracy_score(test_label_list,predictions)
+    accuracy = accuracy_score(dataset_info.ds.get_Y_test(X_train),predictions)
 
     if verbose:
         print('Got baseline of %f with linear regression '%accuracy)
 
     return accuracy
 
-def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
-    (X_train, Y_train), (X_test, Y_test) = dataset
+def get_baseline_pa(dataset_info,verbose=True):
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     classifier = PassiveAggressiveClassifier(n_jobs=-1,fit_intercept=True)
-    classifier.fit(X_train,train_label_list)
-    accuracy = classifier.score(X_test,test_label_list)
+    classifier.fit(X_train,dataset_info.ds.get_Y_train(X_train))
+    accuracy = classifier.score(X_test,dataset_info.ds.get_Y_test(X_train))
     
     if verbose:
         print('Got baseline of %f with Passive Aggressive classifier'%accuracy)
@@ -176,34 +210,33 @@ def get_baseline_pa(dataset,train_label_list,test_label_list,verbose=True):
 
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
     # Prepare features
-    #features_before,labels_before,feature_names_before,label_names_before = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose)
     # TODO:Debug:Remove: Remove diff call 
     #dataset_info.toccDomains = True
-    features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath ,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
+    dataset_info.ds = Dataset()
+    get_ngram_data(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
     #print('Feature words added by toccDomains=True\n%s' % (set(feature_names) - set(feature_names_before)))
     #deleted_features = list(set(feature_names_before) - set(feature_names))
     #print('Feature words deleted by toccDomains=True\n%s' % (deleted_features))
     #** Add back deleted features 
     #deleted_feature_idxs_before = np.where(np.isin(feature_names_before,deleted_features))[0]
     #feature_names = feature_names + deleted_features
-    #features = np.concatenate((features, features_before[:,deleted_feature_idxs_before]), axis=1)    
-    
-    num_labels = len(label_names)
-    dataset_info.label_names = label_names    
-    
-    # Create dataset including splits, sub sampling, labels mapping    
-    dataset,train_label_list,test_label_list,num_labels = make_dataset(features,labels,dataset_info,test_split=test_split)
+    #features = np.concatenate((features, features_before[:,deleted_feature_idxs_before]), axis=1)
+    num_labels = len(dataset_info.label_names)
+    feature_names = dataset_info.feature_names
+    # Create dataset including splits, sub sampling, labels mapping
+    # ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
+    num_labels = make_dataset(dataset_info,test_split=test_split)
     if select_best and select_best<num_words:
-        dataset,scores = select_best_features(dataset,train_label_list,select_best,verbose=verbose)
+        scores = select_best_features(dataset_info,num_labels,select_best,verbose=verbose)
     if plot and select_best:
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
     
     # Train a model    
-    test_metrics,model = evaluate_mlp_model(dataset,dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    test_metrics,model = evaluate_mlp_model(dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
     
     # Evaluate: ROC, confusion matrix, plots
-    new_metrics,predictions = calc_metrics(dataset,model,dataset_info)
+    new_metrics,predictions = calc_metrics(num_labels,model,dataset_info)
     
     # Verbose print and plot
     if dataset_info.new_label_names is not None:
@@ -215,7 +248,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
         # Explain important features
         # explain_predictions(dataset,predictions,model,feature_names,label_names)
         
-    return dataset,train_label_list,test_label_list,new_metrics
+    return num_labels,new_metrics
 
 def test_features_words():
     #get emails once to pickle
@@ -237,7 +270,7 @@ def test_features_words():
         print('\nTesting learning for type %s with word counts %s\n'%(ftype,str(word_counts)))
         for word_count in word_counts:
             start = time.time()
-            dataset,train_label_list,test_label_list,acc_one = run_once(num_words=word_count,ftype=ftype,plot=False,verbose=False,select_best=None)
+            num_labels,acc_one = run_once(num_words=word_count,ftype=ftype,plot=False,verbose=False,select_best=None)
             acc = (acc_one+sum([run_once(num_words=word_count,ftype=ftype,plot=False,verbose=False,select_best=None)[3] for i in range(4)]))/5.0
             end = time.time()
             elapsed = (end-start)/5.0
@@ -245,7 +278,7 @@ def test_features_words():
             print('\nGot acc %f for word count %d in %d seconds'%(acc,word_count,elapsed))
 
             start = time.time()
-            baseline = get_baseline_dummy(dataset,train_label_list,test_label_list,verbose=False) 
+            baseline = get_baseline_dummy(dataset_info, num_labels,verbose=False)
             baselines.append(baseline)
             end = time.time()
             belapsed = end-start
@@ -366,16 +399,16 @@ for i in range(0,dataset_info.num_runs):
     
 
     if (run_baseline):
-        features,labels,feature_names,label_names = get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
+        get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
         #features,labels,label_names = get_sequence_data()
-        dataset_info.label_names = label_names    
-        dataset,train_label_list,test_label_list = make_dataset(features,labels,dataset_info,test_split=0.1)
+        #dataset_info.label_names = label_names
+        num_labels = make_dataset(dataset_info, test_split=0.1)
         
         # Feature selection (best 4000 features)
-        dataset,scores = select_best_features(dataset,train_label_list,4000,verbose=True)
+        scores = select_best_features(dataset_info, num_labels,4000,verbose=True)
         
         # Unrem for baseline svm 
-        baseline = get_baseline_svm(dataset,train_label_list,test_label_list,verbose=True) 
+        baseline = get_baseline_svm(dataset_info, verbose=True)
         
         # Unrem for convnet (not very good at intial tests)
         # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)

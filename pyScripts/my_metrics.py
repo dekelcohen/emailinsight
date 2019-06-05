@@ -10,10 +10,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, accuracy_score, confusion_matrix
-from hpyutils import MyObj, setattrs 
+from hpyutils import MyObj, setattrs
 
-def calc_roc_curve(dataset,pred_probab):  
-    (X_train, Y_train), (X_test, Y_test) = dataset      
+def calc_roc_curve(X_test, Y_test, pred_probab):
     fpr, tpr, thresholds = roc_curve(Y_test[:,1], pred_probab[:,0],  pos_label = 0,drop_intermediate=False) # idx label 0 is the positive class (e.g. 'Save')
     roc_auc = auc(fpr, tpr)
     return fpr, tpr, roc_auc, thresholds
@@ -75,13 +74,18 @@ def print_metrics(nm,roc=False):
         print('ROC Curve:')        
         print('sel_thres %f, sel_tpr %f, sel_fpr %f,thresholds: %s fpr: %s tpr: %s' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr,nm.thresholds,nm.fpr,nm.tpr))
         
-def calc_metrics(dataset,model,dataset_info):
+def calc_metrics(num_labels, model,dataset_info):
     '''
     Main entry point function that predicts classes 0,1 with fpr based threshold, calc ROC and return all associated metrics
     '''
-    (X_train, Y_train), (X_test, Y_test) = dataset  
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     pred_probab = model.predict(X_test)
-    fpr, tpr, roc_auc, thresholds = calc_roc_curve(dataset,pred_probab)
+    X_test_indexes = []
+    for index, row in X_test.iterrows():
+        X_test_indexes.append(index)
+    dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.dataset))]
+
+    fpr, tpr, roc_auc, thresholds = calc_roc_curve(X_test, Y_test, pred_probab)
     sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.fpr_thresh, pred_probab, fpr, tpr,thresholds)
     predictions = get_predictions_by_thresh(pred_probab,sel_thres)
     y_true = Y_test[:,1]
@@ -94,7 +98,7 @@ def calc_metrics(dataset,model,dataset_info):
     setattrs(new_metrics,
            fpr=fpr,
            tpr=tpr, 
-           roc_auc=roc_auc, 
+           roc_auc=roc_auc,
            thresholds=thresholds,
            sel_thres=sel_thres, 
            sel_fpr=sel_fpr, 
@@ -108,4 +112,3 @@ def calc_metrics(dataset,model,dataset_info):
            confusion_mat_def=confusion_mat_def) 
     
     return new_metrics,predictions
-    
