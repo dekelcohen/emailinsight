@@ -35,13 +35,13 @@ class Dataset():
         return self.df[~self.df['test_index'].isnull()].sort_values(by=['test_index'])
 
     def get_Y_train(self, X_train, to_categorical=False, num_labels=0):
-        Y_train = X_train[getattr(self, 'label_col_name', 'label')].tolist()
+        Y_train = X_train[getattr(self, 'label_col_name', 'label_num')].tolist()
         if (to_categorical):
             return np_utils.to_categorical(Y_train, num_labels)
         return Y_train
 
     def get_Y_test(self, X_test, to_categorical=False, num_labels=0):
-        Y_test = X_test[getattr(self, 'label_col_name', 'label')].tolist()
+        Y_test = X_test[getattr(self, 'label_col_name', 'label_num')].tolist()
         if (to_categorical):
             return np_utils.to_categorical(Y_test, num_labels)
         return Y_test

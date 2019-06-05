@@ -3,6 +3,8 @@ import os
 import re
 import csv
 import dateutil.parser
+import pandas as pd
+
 
 class parsedEmail():
 
@@ -95,6 +97,44 @@ def parseEmailCSV(email):
             addToCountDict(word,wordCount)
     parsed_email = parsedEmail(updateId, category,subject,sender,fromDomain,dateParts,body,wordCount, to=email['to'], toDomain=email['toDomain'], cc=email['cc'], ccDomain=email['ccDomain'])
     return parsed_email
+
+def addColumnsCSV(emails):
+    days = []
+    months = []
+    years = []
+    hours = []
+    words = []
+    for index, email in emails.iterrows():
+        try:
+            date = dateutil.parser.parse(email['date'])
+        except:
+            print('except: row[date]='%str(email['date']))
+        if date is None:
+            return
+        dateParts = [date.day,date,date.month,date.year,date.hour]
+        days.append(date.day)
+        months.append(date.month)
+        years.append(date.year)
+        hours.append(date.hour)
+        # dict of <word,count>
+        splitted  = email['content'].split(" ")
+        messageWords = list(filter(None,splitted))
+        wordCount = {}
+        for word in messageWords:
+            if word=='-----Original Message-----':
+                break
+            if len(word)==0 or '\r' in word or '=' in word \
+               or '#' in word or '&' in word or word[0].isupper():
+                continue
+            word = re.sub('[|;\"\'\>\<\'\)\(,.?!\n]','',word)
+            if len(word)>3:
+                addToCountDict(word,wordCount)
+        words.append(wordCount)
+    emails["day"] = days
+    emails["month"] = months
+    emails["year"] = years
+    emails["hour"] = hours
+    emails["words"] = words
 
 def parseEmails(folder,printInfo=True):
     files = os.listdir(folder)

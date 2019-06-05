@@ -16,7 +16,7 @@ from keras.optimizers import SGD, Adam, RMSprop
 from keras.preprocessing.text import Tokenizer
 from keras.layers.embeddings import Embedding
 from keras.utils import np_utils
-from mboxConvert import parseEmails,parseEmailCSV, parseEmailsCSV,getEmailStats,mboxToBinaryCSV
+from mboxConvert import parseEmails,parseEmailCSV, parseEmailsCSV,addColumnsCSV,getEmailStats,mboxToBinaryCSV
 from kerasPlotter import Plotter
 from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Conv1D, MaxPooling1D
@@ -39,9 +39,9 @@ def get_stopwords_list():
 
 from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 
-def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top=0, maxlen=None, as_matrix=True, matrix_type='count',
+def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxlen=None, as_matrix=True, matrix_type='count',
                       label_cutoff=0.01, max_n=1):
-    (totalWordsCount, fromCount, domainCount, labels) = getEmailStats(emails)
+    (totalWordsCount, fromCount, domainCount, labels) = getEmailStats(dataset_info.ds.df)
     if verbose:
         print('Creating email dataset with labels %s ' % str(labels))
         print('Label word breakdown:')
@@ -53,9 +53,9 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
         print('Total word count: %d' % total)
 
     labelCounts = {label: 0 for label in labels}
-    for index, email in emails.iterrows():
+    for index, email in dataset_info.ds.df.iterrows():
         labelCounts[email.label] += 1
-    cutoff = int(len(emails) * label_cutoff)
+    cutoff = int(len(dataset_info.ds.df) * label_cutoff)
     removed = 0
     for label in labels[:]:
         if labelCounts[label] < cutoff or label == 'Important' or label == 'Unread' or label == 'Sent':
@@ -75,7 +75,7 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
     texts = []
     emailLabels = []
     updateIds = []
-    for index, email in emails.iterrows():
+    for index, email in dataset_info.ds.df.iterrows():
         if email.label not in labels:
             continue
         text = email.sender + " " + str(email.subject) + " "
@@ -94,12 +94,14 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
         emailLabels.append(labelNums[email.label])
         updateIds.append(email.updateId)
     emailLabels = np.array(emailLabels)
+    dataset_info.label_names = labels
     if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
         print('Using Keras Tokenizer')
         tokenizer = Tokenizer(nb_words)
         tokenizer.fit_on_texts(texts)
         reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
         word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
+        dataset_info.feature_names = word_list
         if as_matrix:
             feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
             if getattr(dataset_info,'remove_stopwords', False):
@@ -107,10 +109,8 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
                 stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
                 feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
                 word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
-            return updateIds, feature_matrix, emailLabels, word_list, labels
         else:
-            sequences = tokenizer.texts_to_sequences(texts)
-            return updateIds, sequences, emailLabels, word_list, labels
+            feature_matrix = tokenizer.texts_to_sequences(texts)
     else:
         stopwords_list = None
         if getattr(dataset_info,'remove_stopwords', False):
@@ -122,7 +122,13 @@ def get_word_features(emails, dataset_info,verbose=True, nb_words=5000, skip_top
         feature_matrix = vectorizer.fit_transform(texts)
         feature_matrix = feature_matrix.todense()
         word_list = vectorizer.get_feature_names()
-        return updateIds, feature_matrix, emailLabels, word_list, labels
+    df_features = pd.DataFrame(feature_matrix, columns=word_list)
+    df_features = df_features.add_prefix('feature_')
+    df = pd.concat([dataset_info.ds.df, df_features], axis=1)
+    df['label_num'] = emailLabels
+    dataset_info.ds.df = df
+    dataset_info.label_names = labels
+    dataset_info.feature_names = word_list
 
 def write_csv(csvfile, emails, verbose=True):
     emails.to_csv(csvfile, index=False)
@@ -202,7 +208,7 @@ def auto_subsample_dataset(dataset_info):
     sub_sample = dataset_info.ds.get_X_train()
     if not hasattr(dataset_info, 'new_total_samples') or dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
         return
-    unq_lbls = np.unique(sub_sample[getattr(dataset_info.ds,'label_col_name','label')], return_counts=True)
+    unq_lbls = np.unique(sub_sample[getattr(dataset_info.ds,'label_col_name','label_num')], return_counts=True)
     n_samples_per_label = dataset_info.new_total_samples * (1 - dataset_info.test_split) / len(unq_lbls[0])
     if any(unq_lbls[1] < min(15,n_samples_per_label)):
         raise Exception("One of the classes doesn't have enough labels %d, unq_lbls[1]=%s" % (n_samples_per_label, ','.join(unq_lbls[1])))
@@ -225,7 +231,7 @@ def subsample_dataset_by_label_stratified(dataset_info):
     if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
         return
 
-    label_col_name = getattr(dataset_info.ds,'label_col_name','label')
+    label_col_name = getattr(dataset_info.ds,'label_col_name','label_num')
     unq_lbls = np.unique(sub_sample[label_col_name])
     init_randomness(dataset_info)
     
@@ -278,7 +284,7 @@ def auto_map_labels(dataset_info):
         raise Exception("old_num_labels must be integer %f" % (old_num_labels))
         
     get_new_label_idx = create_get_new_label_idx(dataset_info, new_total_labels)    
-    dataset_info.ds.df['new_label_auto'] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label')]))
+    dataset_info.ds.df['new_label_auto'] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label_num')]))
     dataset_info.ds.label_col_name = 'new_label_auto'
 
     return new_total_labels
@@ -303,7 +309,7 @@ def map_labels(dataset_info):
         new_label_idx = new_label_to_idx[new_label]    
         return new_label_idx
 
-    dataset_info.ds.df["new_label_map"] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label')]))
+    dataset_info.ds.df["new_label_map"] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label_num')]))
     dataset_info.ds.label_col_name = "new_label_map"
     new_total_labels = len(dataset_info.new_label_names)
     return new_total_labels
@@ -350,40 +356,27 @@ def get_emails(emailsFilePath,verbose=True):
             pickle.dump(emails,store_to)    
     return emails
 
-def convert_emails(emails):
-    parsedEmails = emails.apply(lambda email: parseEmailCSV(email), axis=1)
-    dataframe_emails = pd.DataFrame.from_records(parsedEmails,
-                              columns=["updateId", "label", "subject", "sender", "fromDomain", "to","toDomain", "cc","ccDomain", "day",
-                                       "date", "month", "year", "hour", "content", "words"])
-    return dataframe_emails
+def convert_emails(df):
+    addColumnsCSV(df)
 
 def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     cachefile = 'cache_data.csv'  # Cached features csv file
     infofile = 'data_info.txt'
     emails = pd.read_csv(emailsFilePath, header=0, sep='\t', keep_default_na=False)
+    dataset_info.ds.df = emails
     if dataset_info.force_papulate_cache or (not dataset_info.force_papulate_cache and not os.path.isfile(cachefile)):
-        parsedEmails = convert_emails(emails)
-        updateIds, features, labels, feature_names, label_names = get_word_features(parsedEmails,dataset_info,
-                                                                                    nb_words=num_words,
-                                                                                    matrix_type=matrix_type,
-                                                                                    verbose=verbose, max_n=max_n)
-        if max_n == 1:
-            write_csv(cachefile, parsedEmails, verbose=verbose)
-            write_info(infofile, label_names)
+        convert_emails(dataset_info.ds.df)
+        write_csv(cachefile, dataset_info.ds.df, verbose=verbose)
+        get_word_features(dataset_info, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
+        write_info(infofile, dataset_info.label_names)
     else:
         cacheData = pd.read_csv(cachefile, header=0, keep_default_na=False)
         cachedEmail = cacheData[(cacheData.updateId.isin(emails.updateId))]
         noCachedEmail = emails[(~emails.updateId.isin(cacheData.updateId))]
         if not noCachedEmail.empty:
             raise Exception('Found emails not in cache')
-        updateIds, features, labels, feature_names, label_names = get_word_features(cachedEmail, dataset_info,nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
-    df = pd.DataFrame(data=features, columns=feature_names)
-    df = df.add_prefix('feature_')
-    df["updateIds"] = updateIds
-    df["label"] = labels
-    dataset_info.label_names = label_names
-    dataset_info.feature_names = feature_names
-    dataset_info.ds.df = df
+        dataset_info.ds.df = cachedEmail
+        get_word_features(dataset_info,nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
 
 
 def get_my_data(per_label=False):
