@@ -278,7 +278,7 @@ def auto_map_labels(dataset_info):
         raise Exception("old_num_labels must be integer %f" % (old_num_labels))
         
     get_new_label_idx = create_get_new_label_idx(dataset_info, new_total_labels)    
-    dataset_info.ds.df['new_label_auto'] = list(map(get_new_label_idx, dataset_info.dataset[getattr(dataset_info.ds,'label_col_name','label')]))
+    dataset_info.ds.df['new_label_auto'] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label')]))
     dataset_info.ds.label_col_name = 'new_label_auto'
 
     return new_total_labels
@@ -303,7 +303,7 @@ def map_labels(dataset_info):
         new_label_idx = new_label_to_idx[new_label]    
         return new_label_idx
 
-    dataset_info.dataset["new_label_map"] = list(map(get_new_label_idx, dataset_info.dataset[getattr(dataset_info.ds,'label_col_name','label')]))
+    dataset_info.ds.df["new_label_map"] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label')]))
     dataset_info.ds.label_col_name = "new_label_map"
     new_total_labels = len(dataset_info.new_label_names)
     return new_total_labels
@@ -322,7 +322,7 @@ def make_dataset(dataset_info,test_split=0.1,nb_words=1000):
     # whrere for get index of value in train_indices
     dataset_info.ds.df["train_index"] = [int((np.where(train_indices == i))[0][0]) if i in train_indices else None for i in range(len(dataset_info.ds.df))]
     dataset_info.ds.df["test_index"] = [int((np.where(test_indices == i))[0][0]) if i in test_indices else None for i in range(len(dataset_info.ds.df))]
-    #auto_subsapmle_dataset --> remove X_train, Y_train, send subdataset by get_train_set(dataset_info.dataset)
+    #auto_subsapmle_dataset --> remove X_train, Y_train, send subdataset by get_train_set(dataset_info.ds.df)
     auto_subsample_dataset(dataset_info=dataset_info)
     # Map labels (ex: from folders to binary 2 folder groups)
     if dataset_info.new_label_names and not hasattr(dataset_info,'labels_map'):
@@ -381,7 +381,6 @@ def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='bin
     df = df.add_prefix('feature_')
     df["updateIds"] = updateIds
     df["label"] = labels
-    dataset_info.dataset = df
     dataset_info.label_names = label_names
     dataset_info.feature_names = feature_names
     dataset_info.ds.df = df

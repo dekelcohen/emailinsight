@@ -83,7 +83,7 @@ def calc_metrics(num_labels, model,dataset_info):
     X_test_indexes = []
     for index, row in X_test.iterrows():
         X_test_indexes.append(index)
-    dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.dataset))]
+    dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
 
     fpr, tpr, roc_auc, thresholds = calc_roc_curve(X_test, Y_test, pred_probab)
     sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.fpr_thresh, pred_probab, fpr, tpr,thresholds)
