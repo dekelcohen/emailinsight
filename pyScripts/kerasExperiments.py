@@ -88,7 +88,7 @@ dataset_info.save_df = True
 #--force papulate cache
 dataset_info.force_papulate_cache = False
 
-if dataset_info.num_runs > 1:
+if dataset_info.num_runs > 1 and dataset_info.save_df:
     raise Exception("Cannot use both save_df and num_runs > 1")
 
 ### Experiment params validation and computed params
