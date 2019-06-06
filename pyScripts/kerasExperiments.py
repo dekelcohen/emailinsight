@@ -1,4 +1,4 @@
-from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails
+from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
@@ -58,7 +58,7 @@ class Dataset():
     
 dataset_info = MyObj()
 
-dataset_info.num_runs = 20
+dataset_info.num_runs = 1
 # PreProcessing
 dataset_info.remove_stopwords = True # remove stopwords (english only for now)
 dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
@@ -71,7 +71,7 @@ dataset_info.toccDomains = True # Use to and cc email domains as features
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
 dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
-dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
+#dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
 #-- Metrics 
@@ -82,8 +82,15 @@ dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
 #TODO: dataset_info.random_seed = 42 # Used to make random splits reproducible
 
+#save final dataframe to csv file only in case num_runs=1
+dataset_info.save_df = True
+
 #--force papulate cache
 dataset_info.force_papulate_cache = False
+
+if dataset_info.num_runs > 1:
+    raise Exception("Cannot use both save_df and num_runs > 1")
+
 ### Experiment params validation and computed params
 if hasattr(dataset_info, 'labels_map') :
     if hasattr(dataset_info, 'new_label_names'):
@@ -414,6 +421,9 @@ for i in range(0,dataset_info.num_runs):
         # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
 
 output_runs_stat(df_test_metrics)
+
+if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
+    write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)
 
 time_elapsed = datetime.now() - start_time
 print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
