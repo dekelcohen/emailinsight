@@ -80,7 +80,7 @@ dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precisio
 #-- NN Arch
 dataset_info.num_hidden = 512
 dataset_info.dropout = 0.5
-#TODO: dataset_info.random_seed = 42 # Used to make random splits reproducible
+dataset_info.random_seed = []
 
 #save final dataframe to csv file only in case num_runs=1
 dataset_info.save_df = True
@@ -399,8 +399,11 @@ start_time = datetime.now()
 metrics_columns=[mtr_name for mtr_name in dataset_info.report_metrics]
 metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
 df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
-
+dataset_info.state = MyObj()
 for i in range(0,dataset_info.num_runs):
+    if len(dataset_info.random_seed) <= i:
+        dataset_info.random_seed.append(int(time.time()))
+    dataset_info.state.index_random_seed = i
     *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
@@ -419,7 +422,7 @@ for i in range(0,dataset_info.num_runs):
         
         # Unrem for convnet (not very good at intial tests)
         # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
-
+print('random seed {}:', dataset_info.random_seed)
 output_runs_stat(df_test_metrics)
 
 if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
