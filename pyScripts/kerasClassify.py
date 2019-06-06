@@ -192,8 +192,8 @@ def read_sequences(txtfile,verbose=True):
     return feature_matrix,labels
 
 def init_randomness(dataset_info):
-    if hasattr(dataset_info, 'random_seed') and not dataset_info.random_seed is None:
-        np.random.seed(dataset_info.random_seed)
+    if hasattr(dataset_info.state, 'index_random_seed') and len(dataset_info.random_seed) > dataset_info.state.index_random_seed:
+        np.random.seed(dataset_info.random_seed[dataset_info.state.index_random_seed])
 
 def get_idx_to_new_label_dict(dataset_info):
   '''
@@ -233,7 +233,6 @@ def subsample_dataset_by_label_stratified(dataset_info):
 
     label_col_name = getattr(dataset_info.ds,'label_col_name','label_num')
     unq_lbls = np.unique(sub_sample[label_col_name])
-    init_randomness(dataset_info)
     
     # find observation index of each class levels
     groupby_lbls = {}
@@ -247,6 +246,7 @@ def subsample_dataset_by_label_stratified(dataset_info):
     for lbl_idx, lbl_samples_idxs in groupby_lbls.items():
         lbl_sample_size = dataset_info.sub_sample_mapped_labels[idx_to_new_label[lbl_idx]]
         size = [lbl_sample_size if lbl_sample_size < len(lbl_samples_idxs) else len(lbl_samples_idxs)]
+        init_randomness(dataset_info)
         lbl_under_sample_idxs = np.random.choice(lbl_samples_idxs, size=size, replace=False).tolist()
         under_sample_idxs += lbl_under_sample_idxs
     count = 0
@@ -265,7 +265,8 @@ def get_class_weight(dataset_info):
     new_label_to_idx = dict(zip(dataset_info.new_label_names, list(range(0,len(dataset_info.new_label_names)))))
     return { new_label_to_idx[lbl_name]:dataset_info.class_weight[lbl_name] for lbl_name in dataset_info.class_weight.keys()}
 
-def create_get_new_label_idx(dataset_info, new_total_labels):  
+def create_get_new_label_idx(dataset_info, new_total_labels):
+    init_randomness(dataset_info)
     permuted_old_label_idxs = np.random.permutation(len(dataset_info.label_names))
     dataset_info.permuted_old_label_idxs = permuted_old_label_idxs
     def get_new_label_idx(old_label_idx):
@@ -299,6 +300,7 @@ def map_labels(dataset_info):
     def get_new_label_idx(idx_orig_label):
         orig_label = orig_label_idx_to_name[idx_orig_label] # 0 --> 'Inbox'
         # If not found in labels_map, try to use 'all_others' key if exist
+        # Assumes label_col_name is the original label_num (folders)
         if orig_label in dataset_info.labels_map:
             new_label = dataset_info.labels_map[orig_label] # { 'Inbox' : 'Save','Notes inbox' : 'Save', 'default_mapping' : 'DontSave' }
         elif 'default_mapping' in dataset_info.labels_map:
@@ -320,6 +322,7 @@ def make_dataset(dataset_info,test_split=0.1,nb_words=1000):
     '''
     num_labels = len(dataset_info.label_names)
     num_examples = dataset_info.ds.get_df().shape[0]
+    init_randomness(dataset_info)
     random_order = np.random.permutation(num_examples)
     index_split = (int)(test_split*num_examples)
     train_indices = random_order[index_split:]

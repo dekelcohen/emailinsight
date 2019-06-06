@@ -88,6 +88,7 @@ def calc_metrics(num_labels, model,dataset_info):
     fpr, tpr, roc_auc, thresholds = calc_roc_curve(X_test, Y_test, pred_probab)
     sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.fpr_thresh, pred_probab, fpr, tpr,thresholds)
     predictions = get_predictions_by_thresh(pred_probab,sel_thres)
+    dataset_info.ds.df["predictions"] = [(predictions[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
     y_true = Y_test[:,1]
     precision, recall, f_score,support = precision_recall_fscore_support(y_true,predictions, pos_label = 0, average = 'binary')
     accuracy = accuracy_score(y_true, predictions)
