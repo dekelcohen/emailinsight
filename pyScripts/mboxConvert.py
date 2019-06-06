@@ -6,30 +6,6 @@ import dateutil.parser
 import pandas as pd
 
 
-class parsedEmail():
-
-    def __init__(self, updateId, label,subject,sender,fromDomain,timeRec,content,words=None, to=None,toDomain=None,cc=None,ccDomain=None):
-        self.updateId = updateId
-        self.label = label
-        self.subject = subject
-        self.sender = sender
-        self.fromDomain = fromDomain
-        self.to = to
-        self.toDomain = toDomain
-        self.cc = cc
-        self.ccDomain = ccDomain
-        self.day = timeRec[0]
-        self.date = timeRec[1]
-        self.month = timeRec[2]
-        self.year = timeRec[3]
-        self.hour = timeRec[4]
-        self.content = content
-        self.words = words        
-
-    def __iter__(self):
-        return iter([self.updateId, self.label, self.subject, self.sender, self.fromDomain, self.to,self.toDomain,
-                     self.cc, self.ccDomain, self.day, self.date, self.month, self.year, self.hour, self.content, self.words])
-
 evilSubstringsRegex = ['<html>.*</html>',\
                        '=20(.*\n)*=20',\
                        '\<.*\>',\
