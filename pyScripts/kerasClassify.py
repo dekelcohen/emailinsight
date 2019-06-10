@@ -131,7 +131,7 @@ def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxl
     dataset_info.feature_names = word_list
 
 def write_csv(csvfile, emails, verbose=True):
-    emails.to_csv(csvfile, index=False)
+    emails.to_csv(csvfile, index=False, sep='\t')
     if verbose:
         print('Wrote CSV to %s' % csvfile)
 
@@ -363,7 +363,7 @@ def convert_emails(df):
     addColumnsCSV(df)
 
 def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
-    cachefile = 'cache_data.csv'  # Cached features csv file
+    cachefile = 'cache_data.tsv'  # Cached features csv file
     infofile = 'data_info.txt'
     emails = pd.read_csv(emailsFilePath, header=0, sep='\t', keep_default_na=False)
     dataset_info.ds.df = emails
@@ -373,7 +373,7 @@ def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='bin
         get_word_features(dataset_info, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
         write_info(infofile, dataset_info.label_names)
     else:
-        cacheData = pd.read_csv(cachefile, header=0, keep_default_na=False)
+        cacheData = pd.read_csv(cachefile, sep='\t', header=0, keep_default_na=False)
         cachedEmail = cacheData[(cacheData.updateId.isin(emails.updateId))]
         noCachedEmail = emails[(~emails.updateId.isin(cacheData.updateId))]
         if not noCachedEmail.empty:
