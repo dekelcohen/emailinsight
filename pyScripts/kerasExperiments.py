@@ -25,14 +25,21 @@ class Dataset():
     def __init__(self):
         pass
 
-    def get_df(self):
-        return self.df
+    # sorted - get df sorted by column "index_row"
+    def get_df(self, sorted=True):
+        df = self.df
+        if hasattr(df, "label_filter_out"):
+            df = df[~df[getattr(self, "filer_col_name", "label_filter_out")] == True]
+        if sorted and hasattr(self.df, 'index_row'):
+            df = df.sort_values(by=['index_row'])
+        return df
 
     def get_X_train(self):
-        return self.df[~self.df[getattr(self, 'train_col_name', 'train_index')].isnull()].sort_values(by=['train_index'])
+        return self.df[(~self.df[getattr(self, 'train_col_name', 'train')].isnull()) &
+                       (~self.df[getattr(self, "filer_col_name", "label_filter_out")] == True)].sort_values(by=['index_row'])
 
     def get_X_test(self):
-        return self.df[~self.df['test_index'].isnull()].sort_values(by=['test_index'])
+        return self.df[(~self.df['test'].isnull()) & (~self.df[getattr(self, "filer_col_name", "label_filter_out")] == True)].sort_values(by=['index_row'])
 
     def get_Y_train(self, X_train, to_categorical=False, num_labels=0):
         Y_train = X_train[getattr(self, 'label_col_name', 'label_num')].tolist()
@@ -51,10 +58,12 @@ class Dataset():
         X_test = self.get_X_test()
         Y_train = self.get_Y_train(X_train, to_categorical=to_categorical, num_labels=num_labels)
         Y_test = self.get_Y_test(X_test, to_categorical=to_categorical, num_labels=num_labels)
+        X_train_features = X_train.filter(regex=r'^feature_', axis=1)
+        X_test_features = X_test.filter(regex=r'^feature_', axis=1)
         if hasattr(self, 'selected_features_idxs'):
-            X_train = X_train.iloc[:, self.selected_features_idxs]
-            X_test = X_test.iloc[:, self.selected_features_idxs]
-        return (np.array(X_train.filter(regex=r'^feature_', axis=1)), Y_train), (X_test.filter(regex=r'^feature_', axis=1), Y_test)
+            X_train_features = X_train_features.iloc[:, self.selected_features_idxs]
+            X_test_features = X_test_features.iloc[:, self.selected_features_idxs]
+        return (np.array(X_train_features), Y_train), (X_test_features, Y_test)
     
 dataset_info = MyObj()
 
@@ -70,6 +79,8 @@ dataset_info.toccDomains = True # Use to and cc email domains as features
 #-- Data 
 # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
 dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
+#dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Omit', 'Projects': 'Save'} # manual mapping with default mapping
+dataset_info.labels_map_filter_names = ['Omit']# values of labels to filter out in df
 dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
 #dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
@@ -95,8 +106,9 @@ if dataset_info.num_runs > 1 and dataset_info.save_df:
 if hasattr(dataset_info, 'labels_map') :
     if hasattr(dataset_info, 'new_label_names'):
         raise Exception("Cannot use both new_label_names and labels_map")
-    # Create new_label_names form labels_map unique values         
-    dataset_info.new_label_names = list(set(dataset_info.labels_map.values()))
+    # Create new_label_names form labels_map unique values
+    dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
+
 
 def select_best_features(dataset_info, num_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
@@ -104,7 +116,7 @@ def select_best_features(dataset_info, num_labels, num_best, verbose=True):
         print('\nSelecting %d best features\n'%num_best)
     selector = SelectKBest(chi2, k=num_best)
     selector.fit_transform(X_train, Y_train)
-    dataset_info.selected_features_idxs = selector.get_support(indices=True).tolist()
+    dataset_info.ds.selected_features_idxs = selector.get_support(indices=True).tolist()
 
     return selector.scores_
 
