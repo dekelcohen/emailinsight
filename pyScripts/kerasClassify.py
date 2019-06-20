@@ -205,7 +205,7 @@ def auto_subsample_dataset(dataset_info):
     '''
     Reduce dataset to dataset_info.new_total_samples, taking the same number of samples from every class.
     '''
-    sub_sample = dataset_info.ds.get_X_train()
+    sub_sample = dataset_info.ds.get_df()
     if not hasattr(dataset_info, 'new_total_samples') or dataset_info.new_total_samples is None or dataset_info.new_total_samples == 0:
         return
     unq_lbls = np.unique(sub_sample[getattr(dataset_info.ds,'label_col_name','label_num')], return_counts=True)
@@ -223,40 +223,76 @@ def auto_subsample_dataset(dataset_info):
     dataset_info.ds.df["in_subsample_auto"] = [True if i in in_subsample_auto_indexes else None for i in range(len(dataset_info.ds.df))]
     dataset_info.ds.train_col_name = "in_subsample_auto"
 
-def subsample_dataset_by_label_stratified(dataset_info):
-    '''
-    Reduce each label in dataset to specified amount in dataset_info.sub_sample_mapped_labels ex: { 'Save': 60 ,'DontSave' : 600 }
-    '''
-    sub_sample = dataset_info.ds.get_X_train()
-    if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
-        return
-
-    label_col_name = getattr(dataset_info.ds,'label_col_name','label_num')
+def get_groupby_labels(dataset_info, sub_sample):
+    label_col_name = getattr(dataset_info.ds, 'label_col_name', 'label_num')
     unq_lbls = np.unique(sub_sample[label_col_name])
-    
+    if (len(unq_lbls) < len(dataset_info.new_label_names)):
+        raise Exception("Missing data for labels, add more folders for Save/dontSave")
     # find observation index of each class levels
     groupby_lbls = {}
     for ii, lbl_idx in enumerate(unq_lbls):
         lbl_samples_idxs = [idx for idx, val in enumerate(sub_sample[label_col_name]) if val == lbl_idx]
         groupby_lbls[lbl_idx] = lbl_samples_idxs
-    
+    return groupby_lbls
+
+def set_sample_idxs(dataset_info, sub_sample, groupby_lbls, label_size, column_name):
     # Undersample each label (in a loop) according to sub_sample_mapped_labels (above)
-    idx_to_new_label = get_idx_to_new_label_dict(dataset_info)     
+    idx_to_new_label = get_idx_to_new_label_dict(dataset_info)
     under_sample_idxs = [] # Holds all idx of samples (from all labels), selected to keep
     for lbl_idx, lbl_samples_idxs in groupby_lbls.items():
-        lbl_sample_size = dataset_info.sub_sample_mapped_labels[idx_to_new_label[lbl_idx]]
+        lbl_sample_size = label_size[idx_to_new_label[lbl_idx]]
         size = [lbl_sample_size if lbl_sample_size < len(lbl_samples_idxs) else len(lbl_samples_idxs)]
         init_randomness(dataset_info)
         lbl_under_sample_idxs = np.random.choice(lbl_samples_idxs, size=size, replace=False).tolist()
         under_sample_idxs += lbl_under_sample_idxs
+        print(column_name, ': ', size, idx_to_new_label[lbl_idx])
     count = 0
     in_subsample_label_indexes = []
     for index, row in sub_sample.iterrows():
         if count in under_sample_idxs:
             in_subsample_label_indexes.append(index)
         count += 1
-    dataset_info.ds.df["in_subsample_label_stratified"] = [True if i in in_subsample_label_indexes else None for i in range(len(dataset_info.ds.df))]
-    dataset_info.ds.train_col_name = "in_subsample_label_stratified"
+    dataset_info.ds.df[column_name] = [True if i in in_subsample_label_indexes else None for i in range(len(dataset_info.ds.df))]
+
+def gcd_list(list):
+    def gcd(a, b):
+        while b > 0:
+            a, b = b, a % b
+        return a
+
+    result = list[0]
+    for i in list[1:]:
+        result = gcd(result, i)
+    return result
+
+def subsample_testset_by_label_stratified(dataset_info):
+    df = dataset_info.ds.get_df()
+    # take sub_sample - only row not in train
+    sub_sample = df[df[getattr(dataset_info.ds, 'train_col_name', 'train')].isnull()]
+    groupby_lbls = get_groupby_labels(dataset_info, sub_sample)
+    # Undersample each label (in a loop) according to sub_sample_mapped_labels (above)
+    idx_to_new_label = get_idx_to_new_label_dict(dataset_info)
+    sub_sample_mapped_labels_values = [*dataset_info.sub_sample_mapped_labels.values()]
+    gcd = gcd_list(sub_sample_mapped_labels_values)
+    ratio_map_labels = {k: v // gcd for k, v in dataset_info.sub_sample_mapped_labels.items()}
+    num_unit = min([len(v) // ratio_map_labels[idx_to_new_label[k]] for k, v in groupby_lbls.items()])
+    label_size = {k: num_unit * v for k, v in ratio_map_labels.items()}
+    set_sample_idxs(dataset_info, sub_sample, groupby_lbls, label_size, 'test')
+
+def subsample_trainset_by_label_stratified(dataset_info):
+    '''
+    Reduce each label in dataset to specified amount in dataset_info.sub_sample_mapped_labels ex: { 'Save': 60 ,'DontSave' : 600 }
+    '''
+    sub_sample = dataset_info.ds.get_df()
+    if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
+        return
+    groupby_lbls = get_groupby_labels(dataset_info, sub_sample)
+    set_sample_idxs(dataset_info, sub_sample, groupby_lbls, dataset_info.sub_sample_mapped_labels, 'train')
+    #dataset_info.ds.train_col_name = 'train'
+
+def subsample_dataset_by_label_stratified(dataset_info):
+    subsample_trainset_by_label_stratified(dataset_info)
+    subsample_testset_by_label_stratified(dataset_info)
 
 def get_class_weight(dataset_info):
     if not hasattr(dataset_info, 'class_weight') or dataset_info.class_weight is None:
@@ -284,11 +320,29 @@ def auto_map_labels(dataset_info):
     if not (old_num_labels / new_total_labels).is_integer():
         raise Exception("old_num_labels must be integer %f" % (old_num_labels))
         
-    get_new_label_idx = create_get_new_label_idx(dataset_info, new_total_labels)    
+    get_new_label_idx = create_get_new_label_idx(dataset_info, new_total_labels)
     dataset_info.ds.df['new_label_auto'] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label_num')]))
     dataset_info.ds.label_col_name = 'new_label_auto'
 
     return new_total_labels
+
+def filter_out_labels(dataset_info):
+    if not hasattr(dataset_info, 'labels_map'):
+        return
+    filter = []
+    for index, row in dataset_info.ds.df.iterrows():
+        if row['label'] in dataset_info.labels_map \
+                and dataset_info.labels_map[row['label']] not in getattr(dataset_info, "labels_map_filter_names", []):
+            filter.append(False)
+        elif row['label'] in dataset_info.labels_map:
+            filter.append(True)
+        elif 'default_mapping' in dataset_info.labels_map \
+                and dataset_info.labels_map['default_mapping'] not in getattr(dataset_info, "labels_map_filter_names", []):
+            filter.append(False)
+        else:
+            filter.append(True)
+    dataset_info.ds.df["label_filter_out"] = filter
+    dataset_info.ds.filer_col_name = "label_filter_out"
 
 def map_labels(dataset_info):
     '''
@@ -307,10 +361,13 @@ def map_labels(dataset_info):
             new_label = dataset_info.labels_map['default_mapping']
         else:
             raise Exception("Failed to map %s"%(orig_label))
-        
-        new_label_idx = new_label_to_idx[new_label]    
+        # set value None for labels in dataset_info.labels_map_filter_names ex: "Omit"
+        new_label_idx = None
+        if new_label in new_label_to_idx:
+            new_label_idx = new_label_to_idx[new_label]
         return new_label_idx
 
+    #sub_sample = dataset_info.ds.get_df(sorted=False)
     dataset_info.ds.df["new_label_map"] = list(map(get_new_label_idx, dataset_info.ds.df[getattr(dataset_info.ds,'label_col_name','label_num')]))
     dataset_info.ds.label_col_name = "new_label_map"
     new_total_labels = len(dataset_info.new_label_names)
@@ -324,15 +381,12 @@ def make_dataset(dataset_info,test_split=0.1,nb_words=1000):
     num_examples = dataset_info.ds.get_df().shape[0]
     init_randomness(dataset_info)
     random_order = np.random.permutation(num_examples)
-    index_split = (int)(test_split*num_examples)
-    train_indices = random_order[index_split:]
-    test_indices = random_order[:index_split]
     # Subsample dataset to get dataset_info.new_total_samples
-    # whrere for get index of value in train_indices
-    dataset_info.ds.df["train_index"] = [int((np.where(train_indices == i))[0][0]) if i in train_indices else None for i in range(len(dataset_info.ds.df))]
-    dataset_info.ds.df["test_index"] = [int((np.where(test_indices == i))[0][0]) if i in test_indices else None for i in range(len(dataset_info.ds.df))]
+    dataset_info.ds.df["index_row"] = [int((np.where(random_order == i))[0][0]) for i in range(len(dataset_info.ds.df))]
     #auto_subsapmle_dataset --> remove X_train, Y_train, send subdataset by get_train_set(dataset_info.ds.df)
+    filter_out_labels(dataset_info)
     auto_subsample_dataset(dataset_info=dataset_info)
+    # filter out row labels that define "Omit"
     # Map labels (ex: from folders to binary 2 folder groups)
     if dataset_info.new_label_names and not hasattr(dataset_info,'labels_map'):
         num_labels = auto_map_labels(dataset_info)
