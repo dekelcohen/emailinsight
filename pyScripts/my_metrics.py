@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, accuracy_score, confusion_matrix
 from hpyutils import MyObj, setattrs
 
-def calc_roc_curve(X_test, Y_test, pred_probab):
+def calc_roc_curve(Y_test, pred_probab):
     fpr, tpr, thresholds = roc_curve(Y_test[:,1], pred_probab[:,0],  pos_label = 0,drop_intermediate=False) # idx label 0 is the positive class (e.g. 'Save')
     roc_auc = auc(fpr, tpr)
     return fpr, tpr, roc_auc, thresholds
@@ -85,7 +85,7 @@ def calc_metrics(num_labels, model,dataset_info):
         X_test_indexes.append(index)
     dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
 
-    fpr, tpr, roc_auc, thresholds = calc_roc_curve(X_test, Y_test, pred_probab)
+    fpr, tpr, roc_auc, thresholds = calc_roc_curve(Y_test, pred_probab)
     sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.fpr_thresh, pred_probab, fpr, tpr,thresholds)
     predictions = get_predictions_by_thresh(pred_probab,sel_thres)
     dataset_info.ds.df["predictions"] = [(predictions[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
