@@ -373,7 +373,7 @@ def map_labels(dataset_info):
     new_total_labels = len(dataset_info.new_label_names)
     return new_total_labels
 
-def make_dataset(dataset_info,test_split=0.1,nb_words=1000):
+def make_dataset(dataset_info):
     '''
     Split train, test subsample and remap labels
     '''

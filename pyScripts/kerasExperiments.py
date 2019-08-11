@@ -244,7 +244,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     feature_names = dataset_info.feature_names
     # Create dataset including splits, sub sampling, labels mapping
     # ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
-    num_labels = make_dataset(dataset_info,test_split=test_split)
+    num_labels = make_dataset(dataset_info)
     if select_best and select_best<num_words:
         scores = select_best_features(dataset_info,num_labels,select_best,verbose=verbose)
     if plot and select_best:
