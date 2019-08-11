@@ -94,41 +94,43 @@ def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxl
         emailLabels.append(labelNums[email.label])
         updateIds.append(email.updateId)
     emailLabels = np.array(emailLabels)
-    dataset_info.label_names = labels
-    if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
-        print('Using Keras Tokenizer')
-        tokenizer = Tokenizer(nb_words)
-        tokenizer.fit_on_texts(texts)
-        reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
-        word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
-        dataset_info.feature_names = word_list
-        if as_matrix:
-            feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
-            if getattr(dataset_info,'remove_stopwords', False):
-                stopwords_list = get_stopwords_list()
-                stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
-                feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
-                word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
-        else:
-            feature_matrix = tokenizer.texts_to_sequences(texts)
-    else:
-        stopwords_list = None
-        if getattr(dataset_info,'remove_stopwords', False):
-            stopwords_list = list(get_stopwords_list())                
-        if matrix_type == 'tfidf':
-            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
-        else:
-            vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
-        feature_matrix = vectorizer.fit_transform(texts)
-        feature_matrix = feature_matrix.todense()
-        word_list = vectorizer.get_feature_names()
-    df_features = pd.DataFrame(feature_matrix, columns=word_list)
-    df_features = df_features.add_prefix('feature_')
-    df = pd.concat([dataset_info.ds.df, df_features], axis=1)
-    df['label_num'] = emailLabels
-    dataset_info.ds.df = df
-    dataset_info.label_names = labels
-    dataset_info.feature_names = word_list
+    dataset_info.ds.df['label_num'] = emailLabels # unique labels, after cutoff (rare labels are not included in emailLables)
+    tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words, as_matrix, matrix_type, max_n)
+#    dataset_info.label_names = labels
+#    if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
+#        print('Using Keras Tokenizer')
+#        tokenizer = Tokenizer(nb_words)
+#        tokenizer.fit_on_texts(texts)
+#        reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
+#        word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
+#        dataset_info.feature_names = word_list
+#        if as_matrix:
+#            feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
+#            if getattr(dataset_info,'remove_stopwords', False):
+#                stopwords_list = get_stopwords_list()
+#                stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
+#                feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
+#                word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
+#        else:
+#            feature_matrix = tokenizer.texts_to_sequences(texts)
+#    else:
+#        stopwords_list = None
+#        if getattr(dataset_info,'remove_stopwords', False):
+#            stopwords_list = list(get_stopwords_list())                
+#        if matrix_type == 'tfidf':
+#            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
+#        else:
+#            vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
+#        feature_matrix = vectorizer.fit_transform(texts)
+#        feature_matrix = feature_matrix.todense()
+#        word_list = vectorizer.get_feature_names()
+#    df_features = pd.DataFrame(feature_matrix, columns=word_list)
+#    df_features = df_features.add_prefix('feature_')
+#    df = pd.concat([dataset_info.ds.df, df_features], axis=1)
+#    df['label_num'] = emailLabels
+#    dataset_info.ds.df = df
+#    dataset_info.label_names = labels
+#    dataset_info.feature_names = word_list
 
 def write_csv(csvfile, emails, verbose=True):
     emails.to_csv(csvfile, index=False, sep='\t')
@@ -283,14 +285,14 @@ def subsample_trainset_by_label_stratified(dataset_info):
     '''
     Reduce each label in dataset to specified amount in dataset_info.sub_sample_mapped_labels ex: { 'Save': 60 ,'DontSave' : 600 }
     '''
-    sub_sample = dataset_info.ds.get_df()
-    if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
-        return
+    sub_sample = dataset_info.ds.get_df()   
     groupby_lbls = get_groupby_labels(dataset_info, sub_sample)
     set_sample_idxs(dataset_info, sub_sample, groupby_lbls, dataset_info.sub_sample_mapped_labels, 'train')
     #dataset_info.ds.train_col_name = 'train'
 
 def subsample_dataset_by_label_stratified(dataset_info):
+    if not hasattr(dataset_info, 'sub_sample_mapped_labels') or dataset_info.sub_sample_mapped_labels is None or len(dataset_info.sub_sample_mapped_labels) == 0:
+        return
     subsample_trainset_by_label_stratified(dataset_info)
     subsample_testset_by_label_stratified(dataset_info)
 
@@ -326,21 +328,23 @@ def auto_map_labels(dataset_info):
 
     return new_total_labels
 
-def filter_out_labels(dataset_info):
-    if not hasattr(dataset_info, 'labels_map'):
-        return
+def filter_out_labels(dataset_info):        
     filter = []
-    for index, row in dataset_info.ds.df.iterrows():
-        if row['label'] in dataset_info.labels_map \
-                and dataset_info.labels_map[row['label']] not in getattr(dataset_info, "labels_map_filter_names", []):
-            filter.append(False)
-        elif row['label'] in dataset_info.labels_map:
-            filter.append(True)
-        elif 'default_mapping' in dataset_info.labels_map \
-                and dataset_info.labels_map['default_mapping'] not in getattr(dataset_info, "labels_map_filter_names", []):
-            filter.append(False)
-        else:
-            filter.append(True)
+    if getattr(dataset_info, 'labels_map',False):
+        for index, row in dataset_info.ds.df.iterrows():
+            if row['label'] in dataset_info.labels_map \
+                    and dataset_info.labels_map[row['label']] not in getattr(dataset_info, "labels_map_filter_names", []):
+                filter.append(False)
+            elif row['label'] in dataset_info.labels_map:
+                filter.append(True)
+            elif 'default_mapping' in dataset_info.labels_map \
+                    and dataset_info.labels_map['default_mapping'] not in getattr(dataset_info, "labels_map_filter_names", []):
+                filter.append(False)
+            else:
+                filter.append(True)
+    else:
+        filter = [False] * len(dataset_info.ds.df)
+        
     dataset_info.ds.df["label_filter_out"] = filter
     dataset_info.ds.filer_col_name = "label_filter_out"
 
@@ -373,6 +377,15 @@ def map_labels(dataset_info):
     new_total_labels = len(dataset_info.new_label_names)
     return new_total_labels
 
+def simple_train_test_split(dataset_info):
+    if not getattr(dataset_info,'test_split',0) > 0:
+        return
+    df = dataset_info.ds.df.sort_values(by=['index_row'])
+    idx_row_train_start = int(dataset_info.test_split*len(df))
+    df['train'] = df.apply (lambda row: True if row.name >= idx_row_train_start else None, axis=1)
+    df['test'] = df.apply (lambda row: True if row.name < idx_row_train_start else None, axis=1)
+    dataset_info.ds.df = df
+    
 def make_dataset(dataset_info):
     '''
     Split train, test subsample and remap labels
@@ -388,15 +401,17 @@ def make_dataset(dataset_info):
     auto_subsample_dataset(dataset_info=dataset_info)
     # filter out row labels that define "Omit"
     # Map labels (ex: from folders to binary 2 folder groups)
-    if dataset_info.new_label_names and not hasattr(dataset_info,'labels_map'):
+    if getattr(dataset_info,'new_label_names',False) and not hasattr(dataset_info,'labels_map'):
         num_labels = auto_map_labels(dataset_info)
     # Map labels manually    
     if dataset_info.labels_map:
         num_labels = map_labels(dataset_info)
-    # Subsample manually according to [optional] sub_sample_mapped_labels. 
-    # Note that train/test split (0.1) already occured (above) --> so only trainset is reduced 
+    # Subsample manually according to [optional] sub_sample_mapped_labels.     
     subsample_dataset_by_label_stratified(dataset_info)
 
+    # Simple train/test split: If none of the above subsample by labels methods created train and test columns - try to create it now
+    if not 'train' in dataset_info.ds.df:
+        simple_train_test_split(dataset_info)
     return num_labels
 
 def get_emails(emailsFilePath,verbose=True):
@@ -416,6 +431,65 @@ def get_emails(emailsFilePath,verbose=True):
 def convert_emails(df):
     addColumnsCSV(df)
 
+
+    
+
+def tokenize_vectorize(texts,labels, dataset_info,verbose=True, nb_words=5000, as_matrix=True, matrix_type='count',
+                       max_n=1):
+    if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
+        print('Using Keras Tokenizer')
+        tokenizer = Tokenizer(nb_words)
+        tokenizer.fit_on_texts(texts)
+        reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
+        word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
+        dataset_info.feature_names = word_list
+        if as_matrix:
+            feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
+            if getattr(dataset_info,'remove_stopwords', False):
+                stopwords_list = get_stopwords_list()
+                stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
+                feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
+                word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
+        else:
+            feature_matrix = tokenizer.texts_to_sequences(texts)
+    else:
+        stopwords_list = None
+        if getattr(dataset_info,'remove_stopwords', False):
+            stopwords_list = list(get_stopwords_list())                
+        if matrix_type == 'tfidf':
+            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
+        else:
+            vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
+        feature_matrix = vectorizer.fit_transform(texts)
+        feature_matrix = feature_matrix.todense()
+        word_list = vectorizer.get_feature_names()
+    df_features = pd.DataFrame(feature_matrix, columns=word_list)
+    df_features = df_features.add_prefix('feature_')
+    df = pd.concat([dataset_info.ds.df, df_features], axis=1)    
+    dataset_info.ds.df = df
+    dataset_info.label_names = labels
+    dataset_info.feature_names = word_list
+
+def get_mock_df(df_pk):
+    df_pk.iloc[0]['folderName'] = 'MyWork' # Ensure at least 2 folder (label) values
+    df_pk['label'] = df_pk['folderName']
+    return df_pk
+    
+def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
+    df_pk = pd.read_pickle(pklFilePath)
+    print(df_pk.columns)
+    # TODO:Debug:Remove - prepare mock df 
+    df = get_mock_df(df_pk)
+    labels = df['label'].unique().tolist()
+    labelToNum = {labels[i]: i for i in range(len(labels))}    
+    print('%d unique labels ' % (len(labels)))
+    df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1)
+    df['all_text'] = df.apply (lambda email: email.subject +' ' + email.content + ' ' + email.people_format, axis=1)
+    texts = df['all_text'].tolist()
+    dataset_info.ds.df = df
+    tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words=num_words, as_matrix=True, matrix_type=matrix_type, max_n=max_n)
+    
+    
 def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     cachefile = 'cache_data.tsv'  # Cached features csv file
     infofile = 'data_info.txt'

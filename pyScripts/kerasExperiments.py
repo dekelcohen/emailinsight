@@ -1,4 +1,4 @@
-from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv
+from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv, get_pkl_features
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
@@ -19,7 +19,61 @@ from my_metrics import calc_metrics, print_metrics, plot_metrics
 from debug_ml import explain_predictions
 
 # Dataset tsv file path. Each line is an email
-csvEmailsFilePath = "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
+csvEmailsFilePath =  "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
+
+
+    
+dataset_info = MyObj()
+
+dataset_info.num_runs = 1
+# PreProcessing
+dataset_info.remove_stopwords = True # remove stopwords (english only for now)
+dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
+dataset_info.vocab_size = 10000
+dataset_info.feature_type = 'tfidf' # Type of feature in matrix: binary (0/1), tfidf, count
+dataset_info.use_keras_tokenizer = False
+# Features
+dataset_info.toccDomains = True # Use to and cc email domains as features 
+#-- Data 
+# dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
+dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
+#dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Omit', 'Projects': 'Save'} # manual mapping with default mapping
+dataset_info.labels_map_filter_names = ['Omit']# values of labels to filter out in df
+dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
+#dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
+# dataset_info.new_total_samples = 100
+dataset_info.test_split = 0.1
+#-- Metrics 
+dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
+dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'] # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)
+#-- NN Arch
+dataset_info.num_hidden = 512
+dataset_info.dropout = 0.5
+dataset_info.random_seed = []
+
+#save final dataframe to csv file only in case num_runs=1
+dataset_info.save_df = True
+
+#--force papulate cache
+dataset_info.force_papulate_cache = False
+
+######################### Enron derived datasets experiments (from/to prediction) ########################
+#dataset_info.read_exp_pkl = True
+## Debug: Remove/Change
+#csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/test_enron_pk.pkl" 
+#dataset_info.labels_map = None
+#dataset_info.sub_sample_mapped_labels = None
+######################## End Enron derived datasets experiments ##########################################
+if dataset_info.num_runs > 1 and dataset_info.save_df:
+    raise Exception("Cannot use both save_df and num_runs > 1")
+
+### Experiment params validation and computed params
+if getattr(dataset_info,'labels_map',False) :
+    if getattr(dataset_info, 'new_label_names', False):
+        raise Exception("Cannot use both new_label_names and labels_map")
+    # Create new_label_names form labels_map unique values
+    dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
+
 
 class Dataset():
     def __init__(self):
@@ -64,51 +118,6 @@ class Dataset():
             X_train_features = X_train_features.iloc[:, self.selected_features_idxs]
             X_test_features = X_test_features.iloc[:, self.selected_features_idxs]
         return (np.array(X_train_features), Y_train), (X_test_features, Y_test)
-    
-dataset_info = MyObj()
-
-dataset_info.num_runs = 1
-# PreProcessing
-dataset_info.remove_stopwords = True # remove stopwords (english only for now)
-dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
-dataset_info.vocab_size = 10000
-dataset_info.feature_type = 'tfidf' # Type of feature in matrix: binary (0/1), tfidf, count
-dataset_info.use_keras_tokenizer = False
-# Features
-dataset_info.toccDomains = True # Use to and cc email domains as features 
-#-- Data 
-# dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
-dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-#dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Omit', 'Projects': 'Save'} # manual mapping with default mapping
-dataset_info.labels_map_filter_names = ['Omit']# values of labels to filter out in df
-dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
-#dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
-# dataset_info.new_total_samples = 100
-dataset_info.test_split = 0.1
-#-- Metrics 
-dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
-dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'] # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)
-#-- NN Arch
-dataset_info.num_hidden = 512
-dataset_info.dropout = 0.5
-dataset_info.random_seed = []
-
-#save final dataframe to csv file only in case num_runs=1
-dataset_info.save_df = True
-
-#--force papulate cache
-dataset_info.force_papulate_cache = False
-
-if dataset_info.num_runs > 1 and dataset_info.save_df:
-    raise Exception("Cannot use both save_df and num_runs > 1")
-
-### Experiment params validation and computed params
-if hasattr(dataset_info, 'labels_map') :
-    if hasattr(dataset_info, 'new_label_names'):
-        raise Exception("Cannot use both new_label_names and labels_map")
-    # Create new_label_names form labels_map unique values
-    dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
-
 
 def select_best_features(dataset_info, num_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
@@ -226,20 +235,15 @@ def get_baseline_pa(dataset_info,verbose=True):
         print('Got baseline of %f with Passive Aggressive classifier'%accuracy)
 
     return accuracy
-
+     
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
     # Prepare features
-    # TODO:Debug:Remove: Remove diff call 
-    #dataset_info.toccDomains = True
     dataset_info.ds = Dataset()
-    get_ngram_data(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
-    #print('Feature words added by toccDomains=True\n%s' % (set(feature_names) - set(feature_names_before)))
-    #deleted_features = list(set(feature_names_before) - set(feature_names))
-    #print('Feature words deleted by toccDomains=True\n%s' % (deleted_features))
-    #** Add back deleted features 
-    #deleted_feature_idxs_before = np.where(np.isin(feature_names_before,deleted_features))[0]
-    #feature_names = feature_names + deleted_features
-    #features = np.concatenate((features, features_before[:,deleted_feature_idxs_before]), axis=1)
+    if getattr(dataset_info,'read_exp_pkl',None):
+        get_pkl_features(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
+    else:
+        get_ngram_data(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
+
     num_labels = len(dataset_info.label_names)
     feature_names = dataset_info.feature_names
     # Create dataset including splits, sub sampling, labels mapping
@@ -257,8 +261,9 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     # Evaluate: ROC, confusion matrix, plots
     new_metrics,predictions = calc_metrics(num_labels,model,dataset_info)
     
+    label_names = dataset_info.label_names
     # Verbose print and plot
-    if dataset_info.new_label_names is not None:
+    if getattr(dataset_info,'new_label_names',None):
         label_names = dataset_info.new_label_names
     if verbose:        
         print_metrics(new_metrics)
@@ -419,7 +424,7 @@ for i in range(0,dataset_info.num_runs):
     *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
-
+    # Baseline classiifer (ex: SVM)
     if (run_baseline):
         get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
         #features,labels,label_names = get_sequence_data()
