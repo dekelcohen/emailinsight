@@ -1,6 +1,6 @@
 from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv, get_pkl_features
 from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import PassiveAggressiveClassifier
+from sklearn.linear_model import PassiveAggressiveClassifier, LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
@@ -52,7 +52,7 @@ dataset_info.dropout = 0.5
 dataset_info.random_seed = []
 
 #save final dataframe to csv file only in case num_runs=1
-dataset_info.save_df = True
+dataset_info.save_df = False
 
 #--force papulate cache
 dataset_info.force_papulate_cache = False
@@ -60,17 +60,19 @@ dataset_info.force_papulate_cache = False
 ######### Preprocessing ###########
 dataset_info.preprocess = MyObj()
 setattrs(dataset_info.preprocess,
-     text_cols = [ 'subject', 'content'], # , 'people_format'
+     text_cols = [ 'subject', 'body'], # , 'people_format'
      use_filtered = True,
-     filtered_prefix = 'filtered_',
+     filtered_prefix = 'filt_',
 )
 
 ######################### Enron derived datasets experiments (from/to prediction) ########################
 dataset_info.read_exp_pkl = True
 # Debug: Remove/Change
-csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/group_data_0.pkl" 
+csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_10.pkl" 
 dataset_info.labels_map = None
 dataset_info.sub_sample_mapped_labels = None
+# dataset_info.labels_map = { True : True, False : False } 
+# dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
 
 
 

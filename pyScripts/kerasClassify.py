@@ -345,12 +345,10 @@ def map_labels(dataset_info):
 def simple_train_test_split(dataset_info):
     if not getattr(dataset_info,'test_split',0) > 0:
         return
-    df = dataset_info.ds.df.sort_values(by=['index_row'])
-    print('***** simple_train_test_split before train/test') # TODO:Debug:Remove
+    df = dataset_info.ds.df.sort_values(by=['index_row'])    
     idx_row_train_start = int(dataset_info.test_split*len(df))
     df['train'] = df.apply (lambda row: True if row.name >= idx_row_train_start else None, axis=1)
-    df['test'] = df.apply (lambda row: True if row.name < idx_row_train_start else None, axis=1)
-    print('***** simple_train_test_split AFTER train/test')
+    df['test'] = df.apply (lambda row: True if row.name < idx_row_train_start else None, axis=1)    
     dataset_info.ds.df = df
     
 def make_dataset(dataset_info):
