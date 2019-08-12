@@ -81,7 +81,7 @@ def calc_metrics(num_labels, model,dataset_info):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
     pred_probab = model.predict(X_test)
     X_test_indexes = []
-    for index, row in X_test.iterrows():
+    for index, row in enumerate(X_test):
         X_test_indexes.append(index)
     dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
 

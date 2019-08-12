@@ -66,11 +66,11 @@ setattrs(dataset_info.preprocess,
 )
 
 ######################### Enron derived datasets experiments (from/to prediction) ########################
-#dataset_info.read_exp_pkl = True
-## Debug: Remove/Change
-#csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/group_data_0.pkl" 
-#dataset_info.labels_map = None
-#dataset_info.sub_sample_mapped_labels = None
+dataset_info.read_exp_pkl = True
+# Debug: Remove/Change
+csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/group_data_0.pkl" 
+dataset_info.labels_map = None
+dataset_info.sub_sample_mapped_labels = None
 
 
 
@@ -124,12 +124,12 @@ class Dataset():
         X_test = self.get_X_test()
         Y_train = self.get_Y_train(X_train, to_categorical=to_categorical, num_labels=num_labels)
         Y_test = self.get_Y_test(X_test, to_categorical=to_categorical, num_labels=num_labels)
-        X_train_features = X_train.filter(regex=r'^feature_', axis=1)
-        X_test_features = X_test.filter(regex=r'^feature_', axis=1)
+        X_train_features = np.array(X_train['features'].tolist())        
+        X_test_features = np.array(X_test['features'].tolist())
         if hasattr(self, 'selected_features_idxs'):
-            X_train_features = X_train_features.iloc[:, self.selected_features_idxs]
-            X_test_features = X_test_features.iloc[:, self.selected_features_idxs]
-        return (np.array(X_train_features), Y_train), (X_test_features, Y_test)
+            X_train_features = X_train_features[:, self.selected_features_idxs]
+            X_test_features = X_test_features[:, self.selected_features_idxs]
+        return (X_train_features, Y_train), (X_test_features, Y_test)
 
 def select_best_features(dataset_info, num_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)

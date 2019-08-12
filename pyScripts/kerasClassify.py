@@ -96,41 +96,6 @@ def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxl
     emailLabels = np.array(emailLabels)
     dataset_info.ds.df['label_num'] = emailLabels # unique labels, after cutoff (rare labels are not included in emailLables)
     tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words, as_matrix, matrix_type, max_n)
-#    dataset_info.label_names = labels
-#    if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
-#        print('Using Keras Tokenizer')
-#        tokenizer = Tokenizer(nb_words)
-#        tokenizer.fit_on_texts(texts)
-#        reverse_word_index = {tokenizer.word_index[word]: word for word in tokenizer.word_index}
-#        word_list = [reverse_word_index[i + 1] for i in range(min(nb_words, len(reverse_word_index)))]
-#        dataset_info.feature_names = word_list
-#        if as_matrix:
-#            feature_matrix = tokenizer.texts_to_matrix(texts, mode=matrix_type)
-#            if getattr(dataset_info,'remove_stopwords', False):
-#                stopwords_list = get_stopwords_list()
-#                stopwords_feature_idxs = np.where(np.isin(word_list,list(stopwords_list)))
-#                feature_matrix = np.delete(feature_matrix,stopwords_feature_idxs,1)
-#                word_list = list(np.delete(np.array(word_list),stopwords_feature_idxs))
-#        else:
-#            feature_matrix = tokenizer.texts_to_sequences(texts)
-#    else:
-#        stopwords_list = None
-#        if getattr(dataset_info,'remove_stopwords', False):
-#            stopwords_list = list(get_stopwords_list())                
-#        if matrix_type == 'tfidf':
-#            vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
-#        else:
-#            vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
-#        feature_matrix = vectorizer.fit_transform(texts)
-#        feature_matrix = feature_matrix.todense()
-#        word_list = vectorizer.get_feature_names()
-#    df_features = pd.DataFrame(feature_matrix, columns=word_list)
-#    df_features = df_features.add_prefix('feature_')
-#    df = pd.concat([dataset_info.ds.df, df_features], axis=1)
-#    df['label_num'] = emailLabels
-#    dataset_info.ds.df = df
-#    dataset_info.label_names = labels
-#    dataset_info.feature_names = word_list
 
 def write_csv(csvfile, emails, verbose=True):
     emails.to_csv(csvfile, index=False, sep='\t')
@@ -462,13 +427,9 @@ def tokenize_vectorize(texts,labels, dataset_info,verbose=True, nb_words=5000, a
             vectorizer = TfidfVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list)
         else:
             vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
-        feature_matrix = vectorizer.fit_transform(texts)
-        feature_matrix = feature_matrix.todense()
-        word_list = vectorizer.get_feature_names()
-    df_features = pd.DataFrame(feature_matrix, columns=word_list)
-    df_features = df_features.add_prefix('feature_')
-    df = pd.concat([dataset_info.ds.df, df_features], axis=1)    
-    dataset_info.ds.df = df
+        feature_matrix = vectorizer.fit_transform(texts)   
+        word_list = vectorizer.get_feature_names()   
+    dataset_info.ds.df['features'] = list(feature_matrix.toarray())
     dataset_info.label_names = labels
     dataset_info.feature_names = word_list
 
