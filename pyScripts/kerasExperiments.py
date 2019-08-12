@@ -14,7 +14,7 @@ import numpy as np
 import time
 
 import pandas as pd
-from hpyutils import MyObj
+from hpyutils import MyObj, setattrs
 from my_metrics import calc_metrics, print_metrics, plot_metrics
 from debug_ml import explain_predictions
 
@@ -57,12 +57,24 @@ dataset_info.save_df = True
 #--force papulate cache
 dataset_info.force_papulate_cache = False
 
+######### Preprocessing ###########
+dataset_info.preprocess = MyObj()
+setattrs(dataset_info.preprocess,
+     text_cols = [ 'subject', 'content'], # , 'people_format'
+     use_filtered = True,
+     filtered_prefix = 'filtered_',
+)
+
 ######################### Enron derived datasets experiments (from/to prediction) ########################
 #dataset_info.read_exp_pkl = True
 ## Debug: Remove/Change
-#csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/test_enron_pk.pkl" 
+#csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/group_data_0.pkl" 
 #dataset_info.labels_map = None
 #dataset_info.sub_sample_mapped_labels = None
+
+
+
+
 ######################## End Enron derived datasets experiments ##########################################
 if dataset_info.num_runs > 1 and dataset_info.save_df:
     raise Exception("Cannot use both save_df and num_runs > 1")

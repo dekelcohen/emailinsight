@@ -381,9 +381,11 @@ def simple_train_test_split(dataset_info):
     if not getattr(dataset_info,'test_split',0) > 0:
         return
     df = dataset_info.ds.df.sort_values(by=['index_row'])
+    print('***** simple_train_test_split before train/test') # TODO:Debug:Remove
     idx_row_train_start = int(dataset_info.test_split*len(df))
     df['train'] = df.apply (lambda row: True if row.name >= idx_row_train_start else None, axis=1)
     df['test'] = df.apply (lambda row: True if row.name < idx_row_train_start else None, axis=1)
+    print('***** simple_train_test_split AFTER train/test')
     dataset_info.ds.df = df
     
 def make_dataset(dataset_info):
@@ -474,17 +476,31 @@ def get_mock_df(df_pk):
     df_pk.iloc[0]['folderName'] = 'MyWork' # Ensure at least 2 folder (label) values
     df_pk['label'] = df_pk['folderName']
     return df_pk
-    
+
+
+        
 def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
+    def concat_all_text(email):
+        txt_all = ""
+        for col_name in dataset_info.preprocess.text_cols:            
+            txt_col = ""
+            filtered_col_name = dataset_info.preprocess.filtered_prefix + col_name
+            if dataset_info.preprocess.use_filtered and filtered_col_name in email:
+                txt_col = email[filtered_col_name]
+            elif col_name in email:
+                txt_col = email[col_name]
+            txt_all += ' ' + txt_col
+            
+        return txt_all
     df_pk = pd.read_pickle(pklFilePath)
     print(df_pk.columns)
     # TODO:Debug:Remove - prepare mock df 
-    df = get_mock_df(df_pk)
+    df = df_pk # df = get_mock_df(df_pk)
     labels = df['label'].unique().tolist()
     labelToNum = {labels[i]: i for i in range(len(labels))}    
     print('%d unique labels ' % (len(labels)))
     df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1)
-    df['all_text'] = df.apply (lambda email: email.subject +' ' + email.content + ' ' + email.people_format, axis=1)
+    df['all_text'] = df.apply (concat_all_text, axis=1)
     texts = df['all_text'].tolist()
     dataset_info.ds.df = df
     tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words=num_words, as_matrix=True, matrix_type=matrix_type, max_n=max_n)
