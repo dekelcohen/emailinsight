@@ -452,12 +452,16 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
             
         return txt_all
     df_pk = pd.read_pickle(pklFilePath)
-    print(df_pk.columns)
+    print('Dataframe columns:\n--------------------------\n%s' % (list(df_pk.columns)))
     # TODO:Debug:Remove - prepare mock df 
     df = df_pk # df = get_mock_df(df_pk)
     labels = df['label'].unique().tolist()
-    labelToNum = {labels[i]: i for i in range(len(labels))}    
-    print('%d unique labels ' % (len(labels)))
+    labelToNum = {labels[i]: i for i in range(len(labels))} 
+    dct_labels_counts = dict(zip(list(df.groupby('label').groups.keys()),list(df.groupby('label')['label'].count())))
+    print('Labels counts: %s ' % (dct_labels_counts))
+    lst_lbl_counts =  list(dct_labels_counts.values())
+    if  min(lst_lbl_counts) / max(lst_lbl_counts) < 0.7:
+        print('***** Warning: Check for class imbalance')
     df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1)
     df['all_text'] = df.apply (concat_all_text, axis=1)
     texts = df['all_text'].tolist()
