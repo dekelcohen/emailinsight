@@ -518,6 +518,7 @@ def get_sequence_data():
     return features,labels,label_names
 
 def evaluate_mlp_model(dataset_info,num_classes,graph_to=None,verbose=True,extra_layers=0):
+    print('Using Keras evaluate_mlp_model\n')
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_classes)
     batch_size = 32
     nb_epoch = 7
@@ -546,8 +547,11 @@ def evaluate_mlp_model(dataset_info,num_classes,graph_to=None,verbose=True,extra
     if verbose:
         print('Test score:',score[0])
         print('Test accuracy (thresh=0.5): %f' % (score[1]))        
-                
-    return score,model
+
+    class RetModel:
+        def predict_proba(X):
+            return model.predict(X)                
+    return RetModel()
 
 def evaluate_recurrent_model(dataset,num_classes):
     (X_train, Y_train), (X_test, Y_test) = dataset

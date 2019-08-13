@@ -1,6 +1,7 @@
 from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv, get_pkl_features
+from mlClassify import logreg_classifier
 from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import PassiveAggressiveClassifier, LogisticRegression
+from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
@@ -77,7 +78,7 @@ dataset_info.sub_sample_mapped_labels = None
 ########################################### Training #####################################################
 dataset_info.train = MyObj()
 setattrs(dataset_info.train,
-    classifier_func = evaluate_mlp_model
+    classifier_func = logreg_classifier # evaluate_mlp_model # Default is Keras:
 )
 
 #-- NN Arch
@@ -291,7 +292,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
        print('Building model...')
     
     # Train a model    
-    test_metrics,model = evaluate_mlp_model(dataset_info,num_labels,graph_to=graph_to, verbose=verbose) 
+    model = dataset_info.train.classifier_func(dataset_info,num_labels,graph_to=graph_to, verbose=verbose) 
     
     # Evaluate: ROC, confusion matrix, plots
     new_metrics,predictions = calc_metrics(num_labels,model,dataset_info)

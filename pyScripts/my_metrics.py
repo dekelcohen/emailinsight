@@ -79,7 +79,7 @@ def calc_metrics(num_labels, model,dataset_info):
     Main entry point function that predicts classes 0,1 with fpr based threshold, calc ROC and return all associated metrics
     '''
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
-    pred_probab = model.predict(X_test)
+    pred_probab = model.predict_proba(X_test)
     X_test_indexes = []
     for index, row in enumerate(X_test):
         X_test_indexes.append(index)
