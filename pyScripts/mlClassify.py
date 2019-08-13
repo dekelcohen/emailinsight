@@ -10,6 +10,6 @@ from sklearn.linear_model import LogisticRegression
 def logreg_classifier(dataset_info,num_labels,graph_to=None, verbose=True):
     print('Using logreg_classifier\n')
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset()
-    logreg = LogisticRegression()
+    logreg = LogisticRegression(solver='lbfgs')
     model = logreg.fit(X_train, Y_train)
     return model

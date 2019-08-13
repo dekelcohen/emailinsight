@@ -549,7 +549,7 @@ def evaluate_mlp_model(dataset_info,num_classes,graph_to=None,verbose=True,extra
         print('Test accuracy (thresh=0.5): %f' % (score[1]))        
 
     class RetModel:
-        def predict_proba(X):
+        def predict_proba(self,X):
             return model.predict(X)                
     return RetModel()
 
