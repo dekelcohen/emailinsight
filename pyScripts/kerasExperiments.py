@@ -46,10 +46,6 @@ dataset_info.test_split = 0.1
 #-- Metrics 
 dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
 dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'] # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)
-#-- NN Arch
-dataset_info.num_hidden = 512
-dataset_info.dropout = 0.5
-dataset_info.random_seed = []
 
 #save final dataframe to csv file only in case num_runs=1
 dataset_info.save_df = False
@@ -57,12 +53,15 @@ dataset_info.save_df = False
 #--force papulate cache
 dataset_info.force_papulate_cache = False
 
+
+dataset_info.random_seed = []
+
 ######### Preprocessing ###########
 dataset_info.preprocess = MyObj()
 setattrs(dataset_info.preprocess,
      text_cols = [ 'subject', 'body'], # , 'people_format'
      use_filtered = True,
-     filtered_prefix = 'filt_',
+     filtered_prefix = 'filt_',     
 )
 
 ######################### Enron derived datasets experiments (from/to prediction) ########################
@@ -75,7 +74,18 @@ dataset_info.sub_sample_mapped_labels = None
 # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
 
 
+########################################### Training #####################################################
+dataset_info.train = MyObj()
+setattrs(dataset_info.train,
+    classifier_func = evaluate_mlp_model
+)
 
+#-- NN Arch
+dataset_info.train.nn = MyObj()
+setattrs(dataset_info.train.nn,
+    num_hidden = 512,
+    dropout = 0.5,
+)
 
 ######################## End Enron derived datasets experiments ##########################################
 if dataset_info.num_runs > 1 and dataset_info.save_df:
@@ -250,7 +260,7 @@ def get_baseline_pa(dataset_info,verbose=True):
 
     return accuracy
      
-def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000,num_hidden=512,dropout=0.5, plot=True,plot_prefix='',graph_to=None,extra_layers=0):    
+def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000, plot=True,plot_prefix='',graph_to=None):    
     # Prepare features
     dataset_info.ds = Dataset()
     if getattr(dataset_info,'read_exp_pkl',None):
@@ -269,8 +279,19 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
     
+    # Print train/test stats 
+    (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)
+    if verbose:
+       print(X_train.shape[0], 'train sequences')
+       print(X_test.shape[0], 'test sequences')
+       print('X_train shape:', X_train.shape)
+       print('X_test shape:', X_test.shape)
+       print('Y_train shape:', Y_train.shape)
+       print('Y_test shape:', Y_test.shape)
+       print('Building model...')
+    
     # Train a model    
-    test_metrics,model = evaluate_mlp_model(dataset_info,num_labels,num_hidden=num_hidden,dropout=dropout,graph_to=graph_to, verbose=verbose,extra_layers=extra_layers)
+    test_metrics,model = evaluate_mlp_model(dataset_info,num_labels,graph_to=graph_to, verbose=verbose) 
     
     # Evaluate: ROC, confusion matrix, plots
     new_metrics,predictions = calc_metrics(num_labels,model,dataset_info)
@@ -435,7 +456,7 @@ for i in range(0,dataset_info.num_runs):
     if len(dataset_info.random_seed) <= i:
         dataset_info.random_seed.append(int(time.time()))
     dataset_info.state.index_random_seed = i
-    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,dropout=dataset_info.dropout,num_hidden=dataset_info.num_hidden, extra_layers=0,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
     df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
     
     # Baseline classiifer (ex: SVM)

@@ -452,7 +452,7 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
             
         return txt_all
     df_pk = pd.read_pickle(pklFilePath)
-    print('Dataframe columns:\n--------------------------\n%s' % (list(df_pk.columns)))
+    print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))
     # TODO:Debug:Remove - prepare mock df 
     df = df_pk # df = get_mock_df(df_pk)
     labels = df['label'].unique().tolist()
@@ -517,19 +517,14 @@ def get_sequence_data():
     num_labels = max(labels)+1
     return features,labels,label_names
 
-def evaluate_mlp_model(dataset_info,num_classes,extra_layers=0,num_hidden=512,dropout=0.5,graph_to=None,verbose=True):
+def evaluate_mlp_model(dataset_info,num_classes,graph_to=None,verbose=True,extra_layers=0):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_classes)
     batch_size = 32
     nb_epoch = 7
+    
+    num_hidden=dataset_info.train.nn.num_hidden
+    dropout=dataset_info.train.nn.dropout
             
-    if verbose:
-        print(X_train.shape[0], 'train sequences')
-        print(X_test.shape[0], 'test sequences')
-        print('X_train shape:', X_train.shape)
-        print('X_test shape:', X_test.shape)
-        print('Y_train shape:', Y_train.shape)
-        print('Y_test shape:', Y_test.shape)
-        print('Building model...')
     model = Sequential()
     model.add(Dense(num_hidden))
     model.add(Activation('relu'))
