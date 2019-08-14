@@ -80,7 +80,7 @@ def init_config():
     setattrs(dataset_info.metrics,
       fpr_thresh = 0.1, # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
       report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'], # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)    
-      testgroupby = 'sender',
+      # testgroupby = 'sender' or 'to' # Report accuracy (correct predictions), by number of training samples per group (groupby sender test samples, for each group get its training samples)
     )
     
     
@@ -483,13 +483,18 @@ def default_exp():
     dataset_info = init_config()
     run_exp()
 
+# Add tags to result metrics 
+def tag_metrics(dataset_info,df_test_metrics):
+    df_test_metrics['text_cols'] = ' '.join(dataset_info.preprocess.text_cols)
+    df_test_metrics['csvEmailsFilePath'] = dataset_info.csvEmailsFilePath
+    
 ##### Enron derived datasets experiments (from/to prediction) ######
 def exp_enron_from():    
     global dataset_info
         
     def init_enron_base_config():
         dataset_info = init_config()
-        dataset_info.num_runs = 3
+        dataset_info.num_runs = 1
         dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
         
         setattrs(dataset_info.preprocess,
@@ -497,20 +502,37 @@ def exp_enron_from():
              use_filtered = True,
              filtered_prefix = 'filt_',     
         )
+        dataset_info.metrics.testgroupby = 'sender'
         # Debug: Remove/Change
-        dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_1.pkl" 
+        dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_0.pkl" 
         dataset_info.labels_map = None
         dataset_info.sub_sample_mapped_labels = None
         # dataset_info.labels_map = { True : True, False : False } 
         # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
         return dataset_info
 
-    dataset_info =  init_enron_base_config()   
-    arr_df_test_metrics = [] # array of df - a df per config
+    
+    df_results = pd.DataFrame() # array of df - a df per config
+    
+    # Exp 1
+    dataset_info =  init_enron_base_config()
     df_test_metrics = run_exp()
-    arr_df_test_metrics.append(df_test_metrics)
-    return arr_df_test_metrics
+    # Add tags to result metrics 
+    tag_metrics(dataset_info,df_test_metrics)
+    df_results = pd.concat([df_results,df_test_metrics])
+    
+#    # Exp 2    
+#    dataset_info =  init_enron_base_config()
+#    dataset_info.preprocess.text_cols = [ 'subject' ] # 'body', 'tok_to', 'tok_cc'
+#    df_test_metrics = run_exp()
+#    # Add tags to result metrics 
+#    tag_metrics(dataset_info,df_test_metrics)
+#    df_results = pd.concat([df_results,df_test_metrics])
+        
+    return df_results
 
-arr_df_test_metrics = exp_enron_from()
+df_results = exp_enron_from()
 # default_exp() # Default experiment (with default dataset_info above)
-# arr_df_test_metrics[0][['accuracy','precision','recall','sel_tpr','roc_auc']].describe()
+# df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']]
+
+df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
