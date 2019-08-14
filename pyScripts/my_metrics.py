@@ -99,7 +99,7 @@ def calc_test_group_stats(df_t,dataset_info,y_true):
     df_group_stats['train_count'].fillna(0,inplace=True)
     bins = pd.IntervalIndex.from_tuples([(0, 0), (1, 1),(2, 2),(3, 3),(4, 4),(5, 5),(6, 6),(7, 7),(8, 10),(11, 20),(21, 50),(51, 100),(101, max(df_group_stats['train_count']))], closed='both')
     df_group_stats['bin_train_count'] = pd.cut(df_group_stats['train_count'], bins=bins)    
-    test_group_binned_train_count = df_group_stats.groupby('bin_train_count').agg({'grp_avg_acc': 'mean', 'test_count' : 'sum'})
+    test_group_binned_train_count = df_group_stats.groupby('bin_train_count').agg({'grp_avg_acc': 'mean', 'sender' : 'count', 'test_count' : 'sum'})
     return test_group_binned_train_count
 
 def calc_metrics(num_labels, model,dataset_info):
