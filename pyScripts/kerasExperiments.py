@@ -19,93 +19,86 @@ from hpyutils import MyObj, setattrs
 from my_metrics import calc_metrics, print_metrics, plot_metrics
 from debug_ml import explain_predictions
 
-# Dataset tsv file path. Each line is an email
-csvEmailsFilePath =  "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv";
 
 
+def init_config():
     
-dataset_info = MyObj()
+    dataset_info = MyObj()
+    
+    dataset_info.csvEmailsFilePath =  "./data/enron_6_email_folders_Inboxes_KAMINSKI.tsv"; # Dataset tsv file path. Each line is an email
+    dataset_info.num_runs = 1
+    # PreProcessing
+    dataset_info.remove_stopwords = True # remove stopwords (english only for now)
+    dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
+    dataset_info.vocab_size = 10000
+    dataset_info.feature_type = 'tfidf' # Type of feature in matrix: binary (0/1), tfidf, count
+    dataset_info.use_keras_tokenizer = False
+    # Features
+    dataset_info.toccDomains = True # Use to and cc email domains as features 
+    #-- Data 
+    # dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
+    dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
+    #dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Omit', 'Projects': 'Save'} # manual mapping with default mapping
+    dataset_info.labels_map_filter_names = ['Omit']# values of labels to filter out in df
+    dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
+    #dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
+    # dataset_info.new_total_samples = 100
+    dataset_info.test_split = 0.1
+    
+    #save final dataframe to csv file only in case num_runs=1
+    dataset_info.save_df = False
+    
+    #--force papulate cache
+    dataset_info.force_papulate_cache = False
+    
+    
+    dataset_info.random_seed = []
+    
+    ######### Preprocessing ###########
+    dataset_info.preprocess = MyObj()
+    setattrs(dataset_info.preprocess,
+         text_cols = [ 'subject', 'body'], # , 'people_format'
+         use_filtered = True,
+         filtered_prefix = 'filt_',     
+    )
+               
+    ########################################### Training #####################################################
+    dataset_info.train = MyObj()
+    setattrs(dataset_info.train,
+        classifier_func = logreg_classifier # evaluate_mlp_model # Default is Keras:
+    )
+    
+    #-- NN Arch
+    dataset_info.train.nn = MyObj()
+    setattrs(dataset_info.train.nn,
+        num_hidden = 512,
+        dropout = 0.5,
+    )
+    
+    ########################################### Metrics #####################################################
+    dataset_info.metrics = MyObj()
+    setattrs(dataset_info.metrics,
+      fpr_thresh = 0.1, # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
+      report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'], # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)    
+      testgroupby = 'sender',
+    )
+    
+    
+    
+    ######################## End Enron derived datasets experiments ##########################################
+    if dataset_info.num_runs > 1 and dataset_info.save_df:
+        raise Exception("Cannot use both save_df and num_runs > 1")
+    
+    ### Experiment params validation and computed params
+    if getattr(dataset_info,'labels_map',False) :
+        if getattr(dataset_info, 'new_label_names', False):
+            raise Exception("Cannot use both new_label_names and labels_map")
+        # Create new_label_names form labels_map unique values
+        dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
+    
+    return dataset_info
 
-dataset_info.num_runs = 1
-# PreProcessing
-dataset_info.remove_stopwords = True # remove stopwords (english only for now)
-dataset_info.ngram_max = 2 # Max number of word ngrams (1 for unigram, 2 for bigram)
-dataset_info.vocab_size = 10000
-dataset_info.feature_type = 'tfidf' # Type of feature in matrix: binary (0/1), tfidf, count
-dataset_info.use_keras_tokenizer = False
-# Features
-dataset_info.toccDomains = True # Use to and cc email domains as features 
-#-- Data 
-# dataset_info.new_label_names = ['Save','DontSave'] # random select labels to map to one of the labels in array. mutually ex with labels_map
-dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Save' } # manual mapping with default mapping
-#dataset_info.labels_map = { 'Inbox' : 'DontSave','Notes inbox' : 'DontSave', 'default_mapping' : 'Omit', 'Projects': 'Save'} # manual mapping with default mapping
-dataset_info.labels_map_filter_names = ['Omit']# values of labels to filter out in df
-dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
-#dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
-# dataset_info.new_total_samples = 100
-dataset_info.test_split = 0.1
-
-#save final dataframe to csv file only in case num_runs=1
-dataset_info.save_df = False
-
-#--force papulate cache
-dataset_info.force_papulate_cache = False
-
-
-dataset_info.random_seed = []
-
-######### Preprocessing ###########
-dataset_info.preprocess = MyObj()
-setattrs(dataset_info.preprocess,
-     text_cols = [ 'subject', 'body'], # , 'people_format'
-     use_filtered = True,
-     filtered_prefix = 'filt_',     
-)
-
-######################### Enron derived datasets experiments (from/to prediction) ########################
-dataset_info.read_exp_pkl = True
-# Debug: Remove/Change
-csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_10.pkl" 
-dataset_info.labels_map = None
-dataset_info.sub_sample_mapped_labels = None
-# dataset_info.labels_map = { True : True, False : False } 
-# dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
-
-
-########################################### Training #####################################################
-dataset_info.train = MyObj()
-setattrs(dataset_info.train,
-    classifier_func = logreg_classifier # evaluate_mlp_model # Default is Keras:
-)
-
-#-- NN Arch
-dataset_info.train.nn = MyObj()
-setattrs(dataset_info.train.nn,
-    num_hidden = 512,
-    dropout = 0.5,
-)
-
-########################################### Metrics #####################################################
-dataset_info.metrics = MyObj()
-setattrs(dataset_info.metrics,
-  fpr_thresh = 0.1, # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
-  report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'], # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)    
-  testgroupby = 'sender',
-)
-
-
-
-######################## End Enron derived datasets experiments ##########################################
-if dataset_info.num_runs > 1 and dataset_info.save_df:
-    raise Exception("Cannot use both save_df and num_runs > 1")
-
-### Experiment params validation and computed params
-if getattr(dataset_info,'labels_map',False) :
-    if getattr(dataset_info, 'new_label_names', False):
-        raise Exception("Cannot use both new_label_names and labels_map")
-    # Create new_label_names form labels_map unique values
-    dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
-
+dataset_info = init_config()
 
 class Dataset():
     def __init__(self):
@@ -272,9 +265,9 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     # Prepare features
     dataset_info.ds = Dataset()
     if getattr(dataset_info,'read_exp_pkl',None):
-        get_pkl_features(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
+        get_pkl_features(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
     else:
-        get_ngram_data(csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
+        get_ngram_data(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
 
     num_labels = len(dataset_info.label_names)
     feature_names = dataset_info.feature_names
@@ -319,7 +312,7 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
 
 def test_features_words():
     #get emails once to pickle
-    emails = get_emails(csvEmailsFilePath,verbose=False)
+    emails = get_emails(dataset_info.csvEmailsFilePath,verbose=False)
 
     types = ['binary','count','freq','tfidf']
     all_accs = []
@@ -367,7 +360,7 @@ def test_features_words():
 
 def test_hidden_dropout():
     #get emails once to pickle
-    emails = get_emails(csvEmailsFilePath,verbose=False)
+    emails = get_emails(dataset_info.csvEmailsFilePath,verbose=False)
 
     dropouts = [0.25,0.5,0.75]
     all_accs = []
@@ -402,7 +395,7 @@ def test_hidden_dropout():
 
 def test_select_words(num_hidden=512):
     #get emails once to pickle
-    emails = get_emails(csvEmailsFilePath,verbose=False)
+    emails = get_emails(dataset_info.csvEmailsFilePath,verbose=False)
 
     word_counts = [2500,3500,4500,5500]
     all_accs = []
@@ -452,44 +445,57 @@ def output_runs_stat(df_test_metrics):
     print('Test runs stats:')
     print(df_test_metrics.describe())
 
-# Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
-import io
-from datetime import datetime
-start_time = datetime.now()
-metrics_columns=[mtr_name for mtr_name in dataset_info.metrics.report_metrics]
-metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
-df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
-dataset_info.state = MyObj()
-for i in range(0,dataset_info.num_runs):
-    if len(dataset_info.random_seed) <= i:
-        dataset_info.random_seed.append(int(time.time()))
-    dataset_info.state.index_random_seed = i
-    *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
-    df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.metrics.report_metrics]
+
+def run_exp():
+    '''
+    Multiple runs of a single config (for avg stats)
+    '''
+    # Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
+    import io
+    from datetime import datetime
+    start_time = datetime.now()
+    metrics_columns=[mtr_name for mtr_name in dataset_info.metrics.report_metrics]
+    metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
+    df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
+    dataset_info.state = MyObj()
+    for i in range(0,dataset_info.num_runs):
+        if len(dataset_info.random_seed) <= i:
+            dataset_info.random_seed.append(int(time.time()))
+        dataset_info.state.index_random_seed = i
+        *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+        df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.metrics.report_metrics]
+                
+    print('random seed {}:', dataset_info.random_seed)
+    output_runs_stat(df_test_metrics)
     
-    # Baseline classiifer (ex: SVM)
-    if (run_baseline):
-        get_ngram_data(csvEmailsFilePath, dataset_info, num_words=5000,matrix_type='tfidf', verbose=True,max_n=1)
-        #features,labels,label_names = get_sequence_data()
-        #dataset_info.label_names = label_names
-        num_labels = make_dataset(dataset_info, test_split=0.1)
-        
-        # Feature selection (best 4000 features)
-        scores = select_best_features(dataset_info, num_labels,4000,verbose=True)
-        
-        # Unrem for baseline svm 
-        baseline = get_baseline_svm(dataset_info, verbose=True)
-        
-        # Unrem for convnet (not very good at intial tests)
-        # predictions,acc = evaluate_conv_model(dataset,num_labels,num_hidden=512,verbose=True,with_lstm=True)
-print('random seed {}:', dataset_info.random_seed)
-output_runs_stat(df_test_metrics)
+    if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
+        write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)
+    
+    time_elapsed = datetime.now() - start_time
+    print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
-if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
-    write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)
+########################## Running multipe configs (datset_info), each num_runs ########################################
 
-time_elapsed = datetime.now() - start_time
-print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+### Default experiemnt 
+def default_exp():
+    global dataset_info
+    dataset_info = init_config()
+    run_exp()
 
+##### Enron derived datasets experiments (from/to prediction) ######
+def exp_enron_from():
+    global dataset_info
+    dataset_info = init_config()
+ 
+    dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
+    # Debug: Remove/Change
+    dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_10.pkl" 
+    dataset_info.labels_map = None
+    dataset_info.sub_sample_mapped_labels = None
+    # dataset_info.labels_map = { True : True, False : False } 
+    # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
+    run_exp()
 
+exp_enron_from()
+# default_exp() # Default experiment (with default dataset_info above)
 # df_test_metrics[['accuracy','precision','recall','sel_tpr','roc_auc']].describe()
