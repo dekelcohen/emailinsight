@@ -44,9 +44,6 @@ dataset_info.sub_sample_mapped_labels = { 'Save': 650 ,'DontSave' : 650 }
 #dataset_info.class_weight = { 'Save': 6 ,'DontSave' : 1 }
 # dataset_info.new_total_samples = 100
 dataset_info.test_split = 0.1
-#-- Metrics 
-dataset_info.fpr_thresh = 0.1 # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
-dataset_info.report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'] # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)
 
 #save final dataframe to csv file only in case num_runs=1
 dataset_info.save_df = False
@@ -87,6 +84,16 @@ setattrs(dataset_info.train.nn,
     num_hidden = 512,
     dropout = 0.5,
 )
+
+########################################### Metrics #####################################################
+dataset_info.metrics = MyObj()
+setattrs(dataset_info.metrics,
+  fpr_thresh = 0.1, # Requires max fpr of 0.1 --> calc class proba threshold for binary classification 
+  report_metrics=['sel_tpr','sel_fpr','roc_auc', 'accuracy','precision','recall','f_score'], # Specify metrics from new_metrics to report (see metrics names in my_metrics.py)    
+  testgroupby = 'sender',
+)
+
+
 
 ######################## End Enron derived datasets experiments ##########################################
 if dataset_info.num_runs > 1 and dataset_info.save_df:
@@ -449,7 +456,7 @@ def output_runs_stat(df_test_metrics):
 import io
 from datetime import datetime
 start_time = datetime.now()
-metrics_columns=[mtr_name for mtr_name in dataset_info.report_metrics]
+metrics_columns=[mtr_name for mtr_name in dataset_info.metrics.report_metrics]
 metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
 df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
 dataset_info.state = MyObj()
@@ -458,7 +465,7 @@ for i in range(0,dataset_info.num_runs):
         dataset_info.random_seed.append(int(time.time()))
     dataset_info.state.index_random_seed = i
     *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
-    df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.report_metrics]
+    df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.metrics.report_metrics]
     
     # Baseline classiifer (ex: SVM)
     if (run_baseline):

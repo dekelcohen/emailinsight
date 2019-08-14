@@ -7,6 +7,7 @@ Created on Sun May 26 13:49:21 2019
 
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, accuracy_score, confusion_matrix
@@ -59,11 +60,24 @@ def plot_confusion_matrix(cm, label_names, title='Confusion matrix', cmap=plt.cm
     if save_to is not None:
         plt.savefig(save_to,bbox_inches='tight')
 
+def plot_group_stats(nm):
+    # Build histogram of mean acc (mean of means of a sender emails) data by bins (num of training examples)
+    cbins = [0, 1, 2,3,4,5,6,7,8,10, 20, 50,100, max(nm.df_group_stats['train_count'])]
+    x = list(nm.df_group_stats['train_count'])
+    plt.figure()
+    plt.hist(x, bins=cbins)    
+    plt.show()
+    plt.xlabel('training samples count')
+    plt.ylabel('avg accuracy')
+    
 def plot_metrics(nm,label_names):
     # Confusion Matrix
     plot_confusion_matrix(nm.confusion_mat, label_names)        
     # ROC curve
     plot_roc_curve(nm)
+    
+    # plot_group_stats(nm)
+    
     
 def print_metrics(nm,roc=False):
     print('\nConfusion matrix: (sel_thres=%f, sel_tpr %f, sel_fpr %f)' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr))
@@ -73,7 +87,29 @@ def print_metrics(nm,roc=False):
     if roc:
         print('ROC Curve:')        
         print('sel_thres %f, sel_tpr %f, sel_fpr %f,thresholds: %s fpr: %s tpr: %s' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr,nm.thresholds,nm.fpr,nm.tpr))
-        
+
+def calc_test_group_stats(df_t,dataset_info,y_true):
+    # Accuracy per group
+    testgroup = getattr(dataset_info.metrics,'testgroupby',None)
+    if not testgroup:
+        return None
+    df_train = dataset_info.ds.get_X_train()
+    df_t['correct_pred'] = y_true == df_t['predictions']
+
+    df_stat = pd.DataFrame()
+    df_stat[testgroup] = list(df_t.groupby(testgroup).groups.keys())
+    df_stat['grp_avg_acc'] = list(df_t.groupby(testgroup)['correct_pred'].mean())
+    df_stat['test_count'] = list(df_t.groupby(testgroup)[testgroup].count())
+    df_train_groups = pd.DataFrame()
+    df_train_groups[testgroup] = list(df_train.groupby(testgroup).groups.keys())
+    df_train_groups['train_count'] = list(df_train.groupby(testgroup)[testgroup].count())
+    
+    df_group_stats =  pd.merge(df_stat,df_train_groups,on=testgroup,how='left')
+    bins = pd.IntervalIndex.from_tuples([(0, 0), (1, 1),(2, 2),(3, 3),(4, 4),(5, 5),(6, 6),(7, 7),(8, 10),(11, 20),(21, 50),(51, 100),(100, max(df_group_stats['train_count']))])
+    df_group_stats['bin_train_count'] = pd.cut(df_group_stats['train_count'], bins=bins)
+    grps = df_group_stats.groupby('bin_train_count')['grp_avg_acc'].mean()
+    return df_group_stats
+
 def calc_metrics(num_labels, model,dataset_info):
     '''
     Main entry point function that predicts classes 0,1 with fpr based threshold, calc ROC and return all associated metrics
@@ -83,18 +119,25 @@ def calc_metrics(num_labels, model,dataset_info):
     X_test_indexes = []
     for index, row in enumerate(X_test):
         X_test_indexes.append(index)
-    dataset_info.ds.df["pred_probab"] = [(pred_probab[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
+        
+    df_t = dataset_info.ds.get_X_test()    
+    df_t['pred_probab'] = list(pred_probab)
 
     fpr, tpr, roc_auc, thresholds = calc_roc_curve(Y_test, pred_probab)
-    sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.fpr_thresh, pred_probab, fpr, tpr,thresholds)
-    predictions = get_predictions_by_thresh(pred_probab,sel_thres)
-    dataset_info.ds.df["predictions"] = [(predictions[X_test_indexes.index(i)]) if i in X_test_indexes else None for i in range(len(dataset_info.ds.df))]
+    sel_thres, sel_fpr,sel_tpr = get_threshold_by_fpr(dataset_info.metrics.fpr_thresh, pred_probab, fpr, tpr,thresholds)
+    predictions = get_predictions_by_thresh(pred_probab,sel_thres)    
+    df_t['predictions'] = predictions    
     y_true = Y_test[:,1]
     precision, recall, f_score,support = precision_recall_fscore_support(y_true,predictions, pos_label = 0, average = 'binary')
     accuracy = accuracy_score(y_true, predictions)
     confusion_mat = confusion_matrix(y_true,predictions)
     predictions_def = get_predictions_by_thresh(pred_probab,0.5)
     confusion_mat_def = confusion_matrix(y_true,predictions_def)
+    
+    # Avg accuracy per group (sender)
+    df_group_stats = calc_test_group_stats(df_t,dataset_info,y_true)
+    
+    
     new_metrics = MyObj()
     setattrs(new_metrics,
            fpr=fpr,
@@ -110,6 +153,7 @@ def calc_metrics(num_labels, model,dataset_info):
            support=support,
            accuracy=accuracy,
            confusion_mat=confusion_mat,
-           confusion_mat_def=confusion_mat_def) 
+           confusion_mat_def=confusion_mat_def,
+           df_group_stats=df_group_stats) 
     
     return new_metrics,predictions
