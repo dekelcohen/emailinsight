@@ -59,25 +59,13 @@ def plot_confusion_matrix(cm, label_names, title='Confusion matrix', cmap=plt.cm
     plt.xlabel('Predicted label')
     if save_to is not None:
         plt.savefig(save_to,bbox_inches='tight')
-
-def plot_group_stats(nm):
-    # Build histogram of mean acc (mean of means of a sender emails) data by bins (num of training examples)
-    cbins = [0, 1, 2,3,4,5,6,7,8,10, 20, 50,100, max(nm.df_group_stats['train_count'])]
-    x = list(nm.df_group_stats['train_count'])
-    plt.figure()
-    plt.hist(x, bins=cbins)    
-    plt.show()
-    plt.xlabel('training samples count')
-    plt.ylabel('avg accuracy')
     
 def plot_metrics(nm,label_names):
     # Confusion Matrix
     plot_confusion_matrix(nm.confusion_mat, label_names)        
     # ROC curve
     plot_roc_curve(nm)
-    
-    # plot_group_stats(nm)
-    
+        
     
 def print_metrics(nm,roc=False):
     print('\nConfusion matrix: (sel_thres=%f, sel_tpr %f, sel_fpr %f)' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr))
@@ -87,11 +75,14 @@ def print_metrics(nm,roc=False):
     if roc:
         print('ROC Curve:')        
         print('sel_thres %f, sel_tpr %f, sel_fpr %f,thresholds: %s fpr: %s tpr: %s' % (nm.sel_thres,nm.sel_tpr,nm.sel_fpr,nm.thresholds,nm.fpr,nm.tpr))
+    
+    if not getattr(nm,'test_group_binned_train_count',None) is None:
+        print(nm.test_group_binned_train_count)
 
 def calc_test_group_stats(df_t,dataset_info,y_true):
     # Accuracy per group
     testgroup = getattr(dataset_info.metrics,'testgroupby',None)
-    if not testgroup:
+    if testgroup is None:
         return None
     df_train = dataset_info.ds.get_X_train()
     df_t['correct_pred'] = y_true == df_t['predictions']
@@ -105,10 +96,11 @@ def calc_test_group_stats(df_t,dataset_info,y_true):
     df_train_groups['train_count'] = list(df_train.groupby(testgroup)[testgroup].count())
     
     df_group_stats =  pd.merge(df_stat,df_train_groups,on=testgroup,how='left')
-    bins = pd.IntervalIndex.from_tuples([(0, 0), (1, 1),(2, 2),(3, 3),(4, 4),(5, 5),(6, 6),(7, 7),(8, 10),(11, 20),(21, 50),(51, 100),(100, max(df_group_stats['train_count']))])
-    df_group_stats['bin_train_count'] = pd.cut(df_group_stats['train_count'], bins=bins)
-    grps = df_group_stats.groupby('bin_train_count')['grp_avg_acc'].mean()
-    return df_group_stats
+    df_group_stats['train_count'].fillna(0,inplace=True)
+    bins = pd.IntervalIndex.from_tuples([(0, 0), (1, 1),(2, 2),(3, 3),(4, 4),(5, 5),(6, 6),(7, 7),(8, 10),(11, 20),(21, 50),(51, 100),(101, max(df_group_stats['train_count']))], closed='both')
+    df_group_stats['bin_train_count'] = pd.cut(df_group_stats['train_count'], bins=bins)    
+    test_group_binned_train_count = df_group_stats.groupby('bin_train_count').agg({'grp_avg_acc': 'mean', 'test_count' : 'sum'})
+    return test_group_binned_train_count
 
 def calc_metrics(num_labels, model,dataset_info):
     '''
@@ -135,7 +127,7 @@ def calc_metrics(num_labels, model,dataset_info):
     confusion_mat_def = confusion_matrix(y_true,predictions_def)
     
     # Avg accuracy per group (sender)
-    df_group_stats = calc_test_group_stats(df_t,dataset_info,y_true)
+    test_group_binned_train_count = calc_test_group_stats(df_t,dataset_info,y_true)
     
     
     new_metrics = MyObj()
@@ -154,6 +146,6 @@ def calc_metrics(num_labels, model,dataset_info):
            accuracy=accuracy,
            confusion_mat=confusion_mat,
            confusion_mat_def=confusion_mat_def,
-           df_group_stats=df_group_stats) 
+           test_group_binned_train_count=test_group_binned_train_count) 
     
     return new_metrics,predictions
