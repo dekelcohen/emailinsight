@@ -481,7 +481,7 @@ def run_exp():
 def default_exp():
     global dataset_info
     dataset_info = init_config()
-    run_exp()
+    return run_exp()
 
 # Add tags to result metrics 
 def tag_metrics(dataset_info,df_test_metrics):
@@ -494,7 +494,7 @@ def exp_enron_from():
         
     def init_enron_base_config():
         dataset_info = init_config()
-        dataset_info.num_runs = 1
+        dataset_info.num_runs = 2
         dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
         
         setattrs(dataset_info.preprocess,
@@ -532,7 +532,9 @@ def exp_enron_from():
     return df_results
 
 df_results = exp_enron_from()
-# default_exp() # Default experiment (with default dataset_info above)
+
+# df_results = default_exp() # Default experiment (with default dataset_info above)
 # df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']]
 
-df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
+out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
+print(out_df)
