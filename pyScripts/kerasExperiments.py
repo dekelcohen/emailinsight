@@ -57,7 +57,7 @@ def init_config():
     ######### Preprocessing ###########
     dataset_info.preprocess = MyObj()
     setattrs(dataset_info.preprocess,
-         text_cols = [ 'subject', 'body'], # , 'people_format'
+         text_cols = [ 'subject', 'content', 'to','cc'], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv)
          use_filtered = True,
          filtered_prefix = 'filt_',     
     )
@@ -473,6 +473,7 @@ def run_exp():
     
     time_elapsed = datetime.now() - start_time
     print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+    return df_test_metrics
 
 ########################## Running multipe configs (datset_info), each num_runs ########################################
 
@@ -483,19 +484,33 @@ def default_exp():
     run_exp()
 
 ##### Enron derived datasets experiments (from/to prediction) ######
-def exp_enron_from():
+def exp_enron_from():    
     global dataset_info
-    dataset_info = init_config()
- 
-    dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
-    # Debug: Remove/Change
-    dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_10.pkl" 
-    dataset_info.labels_map = None
-    dataset_info.sub_sample_mapped_labels = None
-    # dataset_info.labels_map = { True : True, False : False } 
-    # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
-    run_exp()
+        
+    def init_enron_base_config():
+        dataset_info = init_config()
+        dataset_info.num_runs = 3
+        dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
+        
+        setattrs(dataset_info.preprocess,
+             text_cols = [ 'subject', 'body' ], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv) 'tok_to', 'tok_cc'
+             use_filtered = True,
+             filtered_prefix = 'filt_',     
+        )
+        # Debug: Remove/Change
+        dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_1.pkl" 
+        dataset_info.labels_map = None
+        dataset_info.sub_sample_mapped_labels = None
+        # dataset_info.labels_map = { True : True, False : False } 
+        # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
+        return dataset_info
 
-exp_enron_from()
+    dataset_info =  init_enron_base_config()   
+    arr_df_test_metrics = [] # array of df - a df per config
+    df_test_metrics = run_exp()
+    arr_df_test_metrics.append(df_test_metrics)
+    return arr_df_test_metrics
+
+arr_df_test_metrics = exp_enron_from()
 # default_exp() # Default experiment (with default dataset_info above)
-# df_test_metrics[['accuracy','precision','recall','sel_tpr','roc_auc']].describe()
+# arr_df_test_metrics[0][['accuracy','precision','recall','sel_tpr','roc_auc']].describe()

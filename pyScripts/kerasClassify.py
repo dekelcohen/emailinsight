@@ -24,6 +24,7 @@ from keras.layers.recurrent import LSTM,GRU
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
+import numbers
 
 stopwords_lst = None
 
@@ -439,6 +440,9 @@ def get_mock_df(df_pk):
 
         
 def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
+    '''
+    Read files exported by Spark and extract features 
+    '''
     def concat_all_text(email):
         txt_all = ""
         for col_name in dataset_info.preprocess.text_cols:            
@@ -446,8 +450,22 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
             filtered_col_name = dataset_info.preprocess.filtered_prefix + col_name
             if dataset_info.preprocess.use_filtered and filtered_col_name in email:
                 txt_col = email[filtered_col_name]
+                col_name_used = filtered_col_name
             elif col_name in email:
                 txt_col = email[col_name]
+                col_name_used = col_name
+            # Handle both str cols and tok_ cols (array of strings)
+            if type(txt_col) == list:
+                if len(txt_col) == 0:
+                    txt_col = ''
+                elif type(txt_col[0]) == str:
+                    txt_col = ' '.join(txt_col)
+                else:
+                    raise Exception('Failed to concat column %s: It is of type list but not a string list' % (col_name_used))
+            elif type(txt_col) == str or isinstance(txt_col, numbers.Number) or type(txt_col) == bool:
+                txt_col = str(txt_col)
+            else:
+                raise Exception('Failed to concat column %s: type %s is not supported' % (col_name_used, type(txt_col)))
             txt_all += ' ' + txt_col
             
         return txt_all
