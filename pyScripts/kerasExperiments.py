@@ -147,6 +147,19 @@ class Dataset():
             X_train_features = X_train_features[:, self.selected_features_idxs]
             X_test_features = X_test_features[:, self.selected_features_idxs]
         return (X_train_features, Y_train), (X_test_features, Y_test)
+    
+    def setFilterCol(self,new_filter_col_name, logicOr = True):
+        '''
+        Sets a new filter column
+        new_filter_col_name - col name of existing boolean column (filter according to new condition)
+        logicOr - logic OR the new col with old filter col (if old exist), to combine old and new filters. if False - only new filter is in effect
+        '''
+        old_filter_col_name = getattr(self,'filer_col_name',None)
+        if old_filter_col_name and logicOr:
+            self.df[new_filter_col_name] = self.df[new_filter_col_name] | self.df[old_filter_col_name]        
+        
+        dataset_info.ds.filer_col_name = new_filter_col_name        
+        
 
 def select_best_features(dataset_info, num_labels, num_best, verbose=True):
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_labels)

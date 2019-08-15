@@ -312,7 +312,8 @@ def filter_out_labels(dataset_info):
         filter = [False] * len(dataset_info.ds.df)
         
     dataset_info.ds.df["label_filter_out"] = filter
-    dataset_info.ds.filer_col_name = "label_filter_out"
+    dataset_info.ds.setFilterCol("label_filter_out")
+    
 
 def map_labels(dataset_info):
     '''
@@ -357,7 +358,7 @@ def simple_train_test_split(dataset_info):
 def make_dataset(dataset_info):
     '''
     Split train, test subsample and remap labels
-    '''
+    '''                      
     num_labels = len(dataset_info.label_names)
     num_examples = dataset_info.ds.get_df().shape[0]
     init_randomness(dataset_info)
@@ -380,6 +381,7 @@ def make_dataset(dataset_info):
     # Simple train/test split: If none of the above subsample by labels methods created train and test columns - try to create it now
     if not 'train' in dataset_info.ds.df:
         simple_train_test_split(dataset_info)
+            
     return num_labels
 
 def get_emails(emailsFilePath,verbose=True):
