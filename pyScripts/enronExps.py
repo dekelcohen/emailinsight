@@ -4,7 +4,7 @@ Created on Thu Aug 15 13:40:57 2019
 
 @author: Dekel
 """
-from hpyutils import setattrs
+from hpyutils import setattrs, rsetattr
 from kerasExperiments import run_multi_exps_configs, BaseExp
 
 #################### Common Enron Experiments Infra ####################
@@ -32,18 +32,26 @@ class EnronBaseExp(BaseExp):
         df_test_metrics['csvEmailsFilePath'] = dataset_info.csvEmailsFilePath
 
 
-def createEnronMultipleFeaturesExps(testgroupby, text_cols_grps):
+# TODO: Support multiple keys combinatorics in dctParams
+def createEnronMultipleConfigExps(testgroupby, dctParams):
+    '''
+    Return a list of experiments with different params, according to dctParams
+    '''
     exps = []
-    for text_cols in text_cols_grps:
+    prmKey = list(dctParams.keys())[0]
+    for val in dctParams[prmKey]:
         exp = EnronBaseExp(testgroupby)
-        exp.dataset_info.preprocess.text_cols = text_cols
+        rsetattr(exp.dataset_info,prmKey,val)        
         exps.append(exp)
     return exps
 
 ################ Sepcific Enron Exps ####################
     
 # Features lift (compare metrics with 2 groups of features)
-exps = createEnronMultipleFeaturesExps('sender',[[ 'subject', 'body' ],[ 'subject', 'body','tok_to','tok_cc' ]])
+dctParams = { 
+  'preprocess.text_cols' : [[ 'subject', 'body' ],[ 'subject', 'body','tok_to','tok_cc' ]]
+}
+exps = createEnronMultipleConfigExps('sender',dctParams)
 
 df_results = run_multi_exps_configs(exps)
 
