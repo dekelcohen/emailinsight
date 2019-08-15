@@ -83,7 +83,11 @@ def init_config():
       # testgroupby = 'sender' or 'to' # Report accuracy (correct predictions), by number of training samples per group (groupby sender test samples, for each group get its training samples)
     )
     
-    
+    ########################################### Hooks #####################################################
+    dataset_info.hooks = MyObj()
+    setattrs(dataset_info.hooks,
+       afterFeatures = None, # function that is called after tokenization + feature extraction, before make_dataset (train/test split and subsample)
+    )
     
     ######################## End Enron derived datasets experiments ##########################################
     if dataset_info.num_runs > 1 and dataset_info.save_df:
@@ -269,6 +273,10 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     else:
         get_ngram_data(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
 
+    # User defined hook to optionally modify data before train/test split
+    if dataset_info.hooks.afterFeatures:
+        dataset_info.hooks.afterFeatures(dataset_info)
+        
     num_labels = len(dataset_info.label_names)
     feature_names = dataset_info.feature_names
     # Create dataset including splits, sub sampling, labels mapping
@@ -475,72 +483,21 @@ def run_exp():
     print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
     return df_test_metrics
 
+
 ########################## Running multipe configs (datset_info), each num_runs ########################################
-
-### Default experiemnt 
-def default_exp():
+def run_multi_exps_configs(exps):
     global dataset_info
-    dataset_info = init_config()
-    dataset_info.num_runs = 2
-#    dataset_info.labels_map = None
-#    dataset_info.sub_sample_mapped_labels = None
-    return run_exp()
-
-# Add tags to result metrics 
-def tag_metrics(dataset_info,df_test_metrics):
-    df_test_metrics['text_cols'] = ' '.join(dataset_info.preprocess.text_cols)
-    df_test_metrics['csvEmailsFilePath'] = dataset_info.csvEmailsFilePath
-    
-##### Enron derived datasets experiments (from/to prediction) ######
-def exp_enron_from():    
-    global dataset_info
-        
-    def init_enron_base_config():
-        dataset_info = init_config()
-        dataset_info.num_runs = 2
-        dataset_info.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
-        
-        setattrs(dataset_info.preprocess,
-             text_cols = [ 'subject', 'body' ], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv) 'tok_to', 'tok_cc'
-             use_filtered = True,
-             filtered_prefix = 'filt_',     
-        )
-        dataset_info.metrics.testgroupby = 'sender'
-        # Debug: Remove/Change
-        dataset_info.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_0.pkl" 
-        dataset_info.labels_map = None
-        dataset_info.sub_sample_mapped_labels = None
-        # dataset_info.labels_map = { True : True, False : False } 
-        # dataset_info.sub_sample_mapped_labels = { True: 1000 ,False : 1000 }
-        return dataset_info
-
-    
     df_results = pd.DataFrame() # array of df - a df per config
-    
-    # Exp 1
-    dataset_info =  init_enron_base_config()
-    df_test_metrics = run_exp()
-    # Add tags to result metrics 
-    tag_metrics(dataset_info,df_test_metrics)
-    df_results = pd.concat([df_results,df_test_metrics])
-    
-#    # Exp 2    
-#    dataset_info =  init_enron_base_config()
-#    dataset_info.preprocess.text_cols = [ 'subject' ] # 'body', 'tok_to', 'tok_cc'
-#    df_test_metrics = run_exp()
-#    # Add tags to result metrics 
-#    tag_metrics(dataset_info,df_test_metrics)
-#    df_results = pd.concat([df_results,df_test_metrics])
-        
+    for exp in exps:
+        dataset_info = exp.dataset_info
+        df_test_metrics = run_exp()
+        exp.tag_metrics(dataset_info,df_test_metrics)
+        df_results = pd.concat([df_results,df_test_metrics])
     return df_results
 
-# df_results = exp_enron_from()
-# out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
-    
-df_results = default_exp() # Default experiment (with default dataset_info above)
-out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc']]
-
-# df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']]
-
-
-print(out_df)
+class BaseExp:
+    def __init__(self):
+       self.dataset_info = init_config()
+    def tag_metrics(self,dataset_info,df_test_metrics):
+       pass
+        
