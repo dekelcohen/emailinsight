@@ -481,6 +481,9 @@ def run_exp():
 def default_exp():
     global dataset_info
     dataset_info = init_config()
+    dataset_info.num_runs = 2
+#    dataset_info.labels_map = None
+#    dataset_info.sub_sample_mapped_labels = None
     return run_exp()
 
 # Add tags to result metrics 
@@ -531,10 +534,13 @@ def exp_enron_from():
         
     return df_results
 
-df_results = exp_enron_from()
+# df_results = exp_enron_from()
+# out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
+    
+df_results = default_exp() # Default experiment (with default dataset_info above)
+out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc']]
 
-# df_results = default_exp() # Default experiment (with default dataset_info above)
 # df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']]
 
-out_df = df_results[['accuracy','precision','recall','sel_tpr','roc_auc', 'text_cols']].groupby('text_cols').mean()
+
 print(out_df)
