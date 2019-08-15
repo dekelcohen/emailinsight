@@ -343,15 +343,17 @@ def map_labels(dataset_info):
     new_total_labels = len(dataset_info.new_label_names)
     return new_total_labels
 
+
 def simple_train_test_split(dataset_info):
     if not getattr(dataset_info,'test_split',0) > 0:
         return
     df = dataset_info.ds.df.sort_values(by=['index_row'])    
     idx_row_train_start = int(dataset_info.test_split*len(df))
-    df['train'] = df.apply (lambda row: True if row.name >= idx_row_train_start else None, axis=1)
-    df['test'] = df.apply (lambda row: True if row.name < idx_row_train_start else None, axis=1)    
+    df['train'] = df.apply (lambda row: True if row['index_row'] >= idx_row_train_start else None, axis=1)
+    df['test'] = df.apply (lambda row: True if row['index_row'] < idx_row_train_start else None, axis=1)    
     dataset_info.ds.df = df
     
+ 
 def make_dataset(dataset_info):
     '''
     Split train, test subsample and remap labels
@@ -470,9 +472,8 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
             
         return txt_all
     df_pk = pd.read_pickle(pklFilePath)
-    print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))
-    # TODO:Debug:Remove - prepare mock df 
-    df = df_pk # df = get_mock_df(df_pk)
+    print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))   
+    df = df_pk # df = get_mock_df(df_pk)  # TODO:Debug:Remove - prepare mock df 
     labels = df['label'].unique().tolist()
     labelToNum = {labels[i]: i for i in range(len(labels))} 
     dct_labels_counts = dict(zip(list(df.groupby('label').groups.keys()),list(df.groupby('label')['label'].count())))
@@ -536,7 +537,7 @@ def get_sequence_data():
     return features,labels,label_names
 
 def evaluate_mlp_model(dataset_info,num_classes,graph_to=None,verbose=True,extra_layers=0):
-    print('Using Keras evaluate_mlp_model\n')
+    print('\nClassifier: Keras evaluate_mlp_model\n')
     (X_train, Y_train), (X_test, Y_test) = dataset_info.ds.get_dataset(to_categorical=True, num_labels=num_classes)
     batch_size = 32
     nb_epoch = 7
