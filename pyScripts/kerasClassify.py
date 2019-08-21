@@ -442,8 +442,21 @@ def get_mock_df(df_pk):
     return df_pk
 
 
-        
 def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
+    df_pk = pd.read_pickle(pklFilePath)
+    print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))   
+    df = df_pk # df = get_mock_df(df_pk)  # TODO:Debug:Remove - prepare mock df 
+    labels = df['label'].unique().tolist()
+    labelToNum = {labels[i]: i for i in range(len(labels))} 
+    dct_labels_counts = dict(zip(list(df.groupby('label').groups.keys()),list(df.groupby('label')['label'].count())))
+    print('Labels counts: %s ' % (dct_labels_counts))
+    lst_lbl_counts =  list(dct_labels_counts.values())
+    if  min(lst_lbl_counts) / max(lst_lbl_counts) < 0.7:
+        print('***** Warning: Check for class imbalance')
+    df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1) 
+    return get_pkl_tokenzie_features(df, labels, dataset_info, num_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
+        
+def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     '''
     Read files exported by Spark and extract features 
     '''
@@ -473,17 +486,7 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
             txt_all += ' ' + txt_col
             
         return txt_all
-    df_pk = pd.read_pickle(pklFilePath)
-    print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))   
-    df = df_pk # df = get_mock_df(df_pk)  # TODO:Debug:Remove - prepare mock df 
-    labels = df['label'].unique().tolist()
-    labelToNum = {labels[i]: i for i in range(len(labels))} 
-    dct_labels_counts = dict(zip(list(df.groupby('label').groups.keys()),list(df.groupby('label')['label'].count())))
-    print('Labels counts: %s ' % (dct_labels_counts))
-    lst_lbl_counts =  list(dct_labels_counts.values())
-    if  min(lst_lbl_counts) / max(lst_lbl_counts) < 0.7:
-        print('***** Warning: Check for class imbalance')
-    df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1)
+    
     df['all_text'] = df.apply (concat_all_text, axis=1)
     texts = df['all_text'].tolist()
     dataset_info.ds.df = df
