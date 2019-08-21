@@ -100,7 +100,9 @@ def calc_test_group_stats(df_t,dataset_info,y_true):
     bins = pd.IntervalIndex.from_tuples([(0, 0), (1, 1),(2, 2),(3, 3),(4, 4),(5, 5),(6, 6),(7, 7),(8, 10),(11, 20),(21, 50),(51, 100),(101, max(df_group_stats['train_count']))], closed='both')
     df_group_stats['bin_train_count'] = pd.cut(df_group_stats['train_count'], bins=bins)    
     test_group_binned_train_count = df_group_stats.groupby('bin_train_count').agg({'grp_avg_acc': 'mean', testgroup : 'count', 'test_count' : 'sum'})
-    return test_group_binned_train_count
+    # Best senders / to that had most accuracy, test data and train data (to support stat their high acc) - try to identify too easy (automated ?)
+    best_groups = df_group_stats.sort_values(by=['grp_avg_acc','test_count','train_count'], ascending=False)
+    return test_group_binned_train_count,best_groups
 
 def calc_metrics(num_labels, model,dataset_info):
     '''
@@ -128,7 +130,7 @@ def calc_metrics(num_labels, model,dataset_info):
     confusion_mat_def = confusion_matrix(y_true,predictions_def)
     
     # Avg accuracy per group (sender)
-    test_group_binned_train_count = calc_test_group_stats(df_t,dataset_info,y_true)
+    test_group_binned_train_count,best_groups = calc_test_group_stats(df_t,dataset_info,y_true)
     
     
     new_metrics = MyObj()
@@ -147,6 +149,7 @@ def calc_metrics(num_labels, model,dataset_info):
            accuracy=accuracy,
            confusion_mat=confusion_mat,
            confusion_mat_def=confusion_mat_def,
-           test_group_binned_train_count=test_group_binned_train_count) 
+           test_group_binned_train_count=test_group_binned_train_count,
+           best_groups=best_groups) 
     
     return new_metrics,predictions
