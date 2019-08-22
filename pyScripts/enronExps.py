@@ -23,7 +23,7 @@ class EnronBaseExp(BaseExp):
         )
         dsi.metrics.testgroupby = testgroupby
         # Debug: Remove/Change
-        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/group_data_0.pkl" 
+        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/group_1.pkl" 
         dsi.labels_map = None
         dsi.sub_sample_mapped_labels = None
         
@@ -33,33 +33,35 @@ class EnronBaseExp(BaseExp):
         df_test_metrics['csvEmailsFilePath'] = dataset_info.csvEmailsFilePath
 
 
-# TODO: Support multiple keys combinatorics in a single dict or array of dctParams (simpler, no combinatorics, full user control)
+# arrDctParams - Array of dctParams to apply to base config
 # TODO: tag_metrics - by the keys in the dicts (col for each key)
-def createEnronMultipleConfigExps(testgroupby, dctParams):
+def createEnronMultipleConfigExps(testgroupby, arrDctParams):
     '''
     Return a list of experiments with different params, according to dctParams
     '''
-    if len(dctParams.keys()) != 1:
-        raise Exception('createEnronMultipleConfigExps: dctParams must contain exactly 1 key with a value / array of values. TODO: Support multiple keys combinatorics in dctParams')
+    if type(arrDctParams)!=list or len(arrDctParams)== 0:
+        raise Exception('createEnronMultipleConfigExps: arrDctParams must be of type list and contain at least a single empty dict, otherwise 0 experiments will be returned')
     exps = []
-    prmKey = list(dctParams.keys())[0]
-    vals = dctParams[prmKey]
-    if type(vals) != list:
-        vals = [vals]
-    for val in vals:
+    for dctPrms in arrDctParams:
         exp = EnronBaseExp(testgroupby)
-        rsetattr(exp.dataset_info,prmKey,val)        
-        exps.append(exp)
+        for prmKey in list(dctPrms.keys()):
+            prmVal = dctPrms[prmKey]            
+            rsetattr(exp.dataset_info,prmKey,prmVal)
+        exps.append(exp)        
     return exps
+
 
 ############################################################ Sepcific Enron Exps ################################################################
     
 ###################### Features lift (compare metrics with 2 groups of features) ######################
 
-#dctTextColsParams = { 
-#  'preprocess.text_cols' : [[ 'subject', 'body' ],[ 'subject', 'body','tok_to','tok_cc' ]]  
+#dctSubjBody = { 
+#  'preprocess.text_cols' : [ 'subject', 'body' ],
 #}
-#exps = createEnronMultipleConfigExps('sender',dctTextColsParams)
+#dctSubjBodyToCC = { 
+#  'preprocess.text_cols' : [ 'subject', 'body','tok_to','tok_cc' ]
+#}
+#exps = createEnronMultipleConfigExps('sender',[dctSubjBody,dctSubjBodyToCC])
 
 ###################### Randomized Labels Test ######################
 def randomizeLabels(dataset_info):
@@ -69,7 +71,7 @@ def randomizeLabels(dataset_info):
 #dctRandLblParams = { 
 # 'hooks.afterFeatures' : randomizeLabels,
 #}    
-#exps = createEnronMultipleConfigExps('sender',dctRandLblParams)
+#exps = createEnronMultipleConfigExps('sender',[dctRandLblParams])
 #
 
 ###################### Filter senders with small count of training sample  ######################
@@ -92,10 +94,33 @@ def createfilterFewEmailsGroup(testgroup,min_sender_emails_to_keep):
         
     return filterFewEmailsGroup
 
-dctFilterFewEmailGroupParams = { 
- 'hooks.afterFeatures' : createfilterFewEmailsGroup('sender',5),
+#dctFilterFewEmailGroupParams = { 
+# 'hooks.afterFeatures' : createfilterFewEmailsGroup('sender',5),
+#}    
+#exps = createEnronMultipleConfigExps('sender',[dctFilterFewEmailGroupParams] )
+
+
+###################### Embeddings  ######################
+def modifyFeatureVector(df):     
+    '''
+    adds 'features' coludfmns by combining feature vectors of subject, body, different embeddings, etc
+    '''    
+    # Inside lambda - Convert each DenseVector cell (subj,body) to np.arr of np.arr --> elementwise avg of 2 vectors (avg of arr of arr) using np --> tolist (features is a list)
+    
+    # BOW + W2V_100
+    df['features'] = df.apply(lambda row: np.average(np.array([row['emb_w2v_body'].tolist(),row['emb_w2v_subj'].tolist()]),axis=0).tolist() + row['features'].tolist(), axis=1)    
+    
+    return df
+
+dctGetFeatureVectorParams = { 
+  'preprocess.modifyFeatureVector' : modifyFeatureVector,
+  'preprocess.select_best' : None,
 }    
-exps = createEnronMultipleConfigExps('sender',dctFilterFewEmailGroupParams )
+
+exps = createEnronMultipleConfigExps('sender',[dctGetFeatureVectorParams])
+
+# exps = [EnronBaseExp('sender')] # Exp with default enron config (no dctParams)
+
 
 
 ########################################## Run multi exp ################################################    

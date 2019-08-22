@@ -406,6 +406,9 @@ def convert_emails(df):
 
 def tokenize_vectorize(texts,labels, dataset_info,verbose=True, nb_words=5000, as_matrix=True, matrix_type='count',
                        max_n=1):
+    '''
+    Tokenize and Featurize from text --> tokens --> Count/TFIDF Vectorizers (optionally removing stopwords)
+    '''
     if getattr(dataset_info,'use_keras_tokenizer',False) and max_n == 1 or not as_matrix:
         print('Using Keras Tokenizer')
         tokenizer = Tokenizer(nb_words)
@@ -432,8 +435,7 @@ def tokenize_vectorize(texts,labels, dataset_info,verbose=True, nb_words=5000, a
             vectorizer = CountVectorizer(ngram_range=(1, max_n), max_features=nb_words, stop_words = stopwords_list, binary=matrix_type == 'binary')
         feature_matrix = vectorizer.fit_transform(texts)   
         word_list = vectorizer.get_feature_names()   
-    dataset_info.ds.df['features'] = list(feature_matrix.toarray())
-    dataset_info.label_names = labels
+    dataset_info.ds.df['features'] = list(feature_matrix.toarray())    
     dataset_info.feature_names = word_list
 
 def get_mock_df(df_pk):
@@ -454,7 +456,11 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
     if  min(lst_lbl_counts) / max(lst_lbl_counts) < 0.7:
         print('***** Warning: Check for class imbalance')
     df['label_num'] = df.apply (lambda email: labelToNum[email.label], axis=1) 
-    return get_pkl_tokenzie_features(df, labels, dataset_info, num_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
+    dataset_info.ds.df = df
+    dataset_info.label_names = labels
+    get_pkl_tokenzie_features(df, labels, dataset_info, num_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
+    if dataset_info.preprocess.modifyFeatureVector:
+        dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df)        
         
 def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     '''
@@ -488,8 +494,7 @@ def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_typ
         return txt_all
     
     df['all_text'] = df.apply (concat_all_text, axis=1)
-    texts = df['all_text'].tolist()
-    dataset_info.ds.df = df
+    texts = df['all_text'].tolist()    
     tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words=num_words, as_matrix=True, matrix_type=matrix_type, max_n=max_n)
     
     

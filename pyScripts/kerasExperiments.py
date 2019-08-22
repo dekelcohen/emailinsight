@@ -58,6 +58,8 @@ def init_config():
     dataset_info.preprocess = MyObj()
     setattrs(dataset_info.preprocess,
          text_cols = [ 'subject', 'content', 'to','cc'], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv)
+         modifyFeatureVector = None, # accept df and return a new DF, modifying df['feature'] using Embeddings, KB 
+         select_best = 4000, # Number of features to keep in feature selection (disable if working )
          use_filtered = True,
          filtered_prefix = 'filt_',     
     )
@@ -290,14 +292,14 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
     if dataset_info.hooks.afterFeatures:
         dataset_info.hooks.afterFeatures(dataset_info)
         
-    num_labels = len(dataset_info.label_names)
-    feature_names = dataset_info.feature_names
+    num_labels = len(dataset_info.label_names)    
     # Create dataset including splits, sub sampling, labels mapping
     # ((X_train,Y_train_c),(X_test,Y_test_c)),Y_train,Y_test,num_labels
-    num_labels = make_dataset(dataset_info)
+    num_labels = make_dataset(dataset_info)    
     if select_best and select_best<num_words:
         scores = select_best_features(dataset_info,num_labels,select_best,verbose=verbose)
     if plot and select_best:
+        feature_names = dataset_info.feature_names
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_best.png')
         plot_feature_scores(feature_names, scores,limit_to=25, save_to=plot_prefix+'scores_worst.png',best=False)
     
@@ -483,7 +485,7 @@ def run_exp():
         if len(dataset_info.random_seed) <= i:
             dataset_info.random_seed.append(int(time.time()))
         dataset_info.state.index_random_seed = i
-        *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=4000)
+        *dummy,new_metrics = run_once(num_words=dataset_info.vocab_size,ftype=dataset_info.feature_type,test_split=dataset_info.test_split, plot=False if dataset_info.num_runs > 1 else True, verbose=True,select_best=dataset_info.preprocess.select_best)
         df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.metrics.report_metrics]
                 
     print('random seed {}:', dataset_info.random_seed)
