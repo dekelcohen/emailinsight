@@ -13,7 +13,7 @@ class EnronBaseExp(BaseExp):
     def __init__(self,testgroupby):
         super().__init__()
         dsi = self.dataset_info
-        dsi.num_runs = 3
+        dsi.num_runs = 2
         dsi.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
         
         setattrs(dsi.preprocess,
@@ -23,7 +23,7 @@ class EnronBaseExp(BaseExp):
         )
         dsi.metrics.testgroupby = testgroupby
         # Debug: Remove/Change
-        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/group_1.pkl" 
+        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/group_0.pkl" 
         dsi.labels_map = None
         dsi.sub_sample_mapped_labels = None
         
@@ -58,10 +58,12 @@ def createEnronMultipleConfigExps(testgroupby, arrDctParams):
 #dctSubjBody = { 
 #  'preprocess.text_cols' : [ 'subject', 'body' ],
 #}
-#dctSubjBodyToCC = { 
-#  'preprocess.text_cols' : [ 'subject', 'body','tok_to','tok_cc' ]
-#}
-#exps = createEnronMultipleConfigExps('sender',[dctSubjBody,dctSubjBodyToCC])
+from kerasClassify import evaluate_mlp_model
+dctSubjBodyToCC = { 
+  'preprocess.text_cols' : [ 'subject', 'body','tok_to','tok_cc' ],
+  'train.classifier_func' : evaluate_mlp_model
+}
+exps = createEnronMultipleConfigExps('sender',[dctSubjBodyToCC]) #dctSubjBody,
 
 ###################### Randomized Labels Test ######################
 def randomizeLabels(dataset_info):
@@ -149,7 +151,7 @@ dctGloveParams = {
   'preprocess.select_best' : None,
 }    
 
-exps = createEnronMultipleConfigExps('sender',[dctGloveParams])
+# exps = createEnronMultipleConfigExps('sender',[dctGloveParams])
 ########################################## Run multi exp ################################################    
 df_results = run_multi_exps_configs(exps)
 

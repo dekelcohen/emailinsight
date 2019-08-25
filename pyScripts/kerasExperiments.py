@@ -464,7 +464,7 @@ run_baseline = False
 
 # TODO: try ftype = 'tfidf'
 
-def output_run_stats(df_test_metrics):        
+def output_single_run_stats(df_test_metrics):        
     print('Test single runs stats:')
     print(df_test_metrics)
 
@@ -489,7 +489,7 @@ def run_exp():
         df_test_metrics.loc[i] = [getattr(new_metrics,mtr_name) for mtr_name in dataset_info.metrics.report_metrics]
                 
     print('random seed {}:', dataset_info.random_seed)
-    output_run_stats(df_test_metrics)
+    output_single_run_stats(df_test_metrics)
     
     if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
         write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)
