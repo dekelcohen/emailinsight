@@ -12,6 +12,7 @@ from sklearn.preprocessing import label_binarize
 from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 import time
 
 import pandas as pd
@@ -475,8 +476,7 @@ def run_exp():
     '''
     # Create metrics tracking dataframe for multiple runs, where each column is a metric (acc,prec,recall,f1 ...)
     import io
-    from datetime import datetime
-    start_time = datetime.now()
+    
     metrics_columns=[mtr_name for mtr_name in dataset_info.metrics.report_metrics]
     metrics_dtype=[np.float for d in range(0,len(metrics_columns))]
     df_test_metrics = pd.read_csv(io.StringIO(""), names=metrics_columns, dtype=dict(zip(metrics_columns,metrics_dtype))) # pd.DataFrame(columns=metrics_columns,dtype=metrics_dtype)
@@ -492,22 +492,22 @@ def run_exp():
     output_single_run_stats(df_test_metrics)
     
     if hasattr(dataset_info, 'save_df') and dataset_info.save_df:
-        write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)
-    
-    time_elapsed = datetime.now() - start_time
-    print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+        write_csv('final_df.tsv', dataset_info.ds.df, verbose=True)    
     return df_test_metrics
 
 
 ########################## Running multipe configs (datset_info), each num_runs ########################################
-def run_multi_exps_configs(exps):
+def run_multi_exps_configs(exps):    
     global dataset_info
+    start_time = datetime.now()
     df_results = pd.DataFrame() # array of df - a df per config
     for exp in exps:
         dataset_info = exp.dataset_info
         df_test_metrics = run_exp()
         exp.tag_metrics(dataset_info,df_test_metrics)
         df_results = pd.concat([df_results,df_test_metrics])
+    time_elapsed = datetime.now() - start_time
+    print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))    
     return df_results
 
 class BaseExp:
