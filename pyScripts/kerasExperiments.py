@@ -58,7 +58,7 @@ def init_config():
     dataset_info.preprocess = MyObj()
     setattrs(dataset_info.preprocess,
          text_cols = [ 'subject', 'content', 'to','cc'], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv)
-         modifyFeatureVector = None, # accept df and return a new DF, modifying df['feature'] using Embeddings, KB 
+         modifyFeatureVector = None, # accept (dataset_info.ds.df,dataset_info) and return a new df, modifying df['feature'] using Embeddings, KB 
          select_best = 4000, # Number of features to keep in feature selection (disable if working )
          use_filtered = True,
          filtered_prefix = 'filt_',     

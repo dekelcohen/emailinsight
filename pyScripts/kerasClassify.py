@@ -460,7 +460,7 @@ def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='bina
     dataset_info.label_names = labels
     get_pkl_tokenzie_features(df, labels, dataset_info, num_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
     if dataset_info.preprocess.modifyFeatureVector:
-        dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df)        
+        dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df,dataset_info)        
         
 def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     '''

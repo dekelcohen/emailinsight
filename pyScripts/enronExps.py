@@ -100,8 +100,8 @@ def createfilterFewEmailsGroup(testgroup,min_sender_emails_to_keep):
 #exps = createEnronMultipleConfigExps('sender',[dctFilterFewEmailGroupParams] )
 
 
-###################### Embeddings  ######################
-def modifyFeatureVector(df):     
+###################### W2V Trained Embeddings  ######################
+def concatW2vTrainedWithBOW(df):     
     '''
     adds 'features' coludfmns by combining feature vectors of subject, body, different embeddings, etc
     '''    
@@ -113,16 +113,43 @@ def modifyFeatureVector(df):
     return df
 
 dctGetFeatureVectorParams = { 
-  'preprocess.modifyFeatureVector' : modifyFeatureVector,
+  'preprocess.modifyFeatureVector' : concatW2vTrainedWithBOW,
   'preprocess.select_best' : None,
 }    
 
-exps = createEnronMultipleConfigExps('sender',[dctGetFeatureVectorParams])
+# exps = createEnronMultipleConfigExps('sender',[dctGetFeatureVectorParams])
 
 # exps = [EnronBaseExp('sender')] # Exp with default enron config (no dctParams)
 
 
+###################### Glove Pretrained Embeddings  ######################
+def getAggListVecs(lstVecs):
+    return np.average(np.array([np.array(v) for v in lstVecs]),axis=0).tolist()
+    
+def concatGlovePretrainedWithBOW(df,dataset_info):
+    '''
+    adds 'features' coludfmns by combining feature vectors of subject, body, different embeddings, etc
+    '''    
+    # Inside lambda - Convert each DenseVector cell (subj,body) to np.arr of np.arr --> elementwise avg of 2 vectors (avg of arr of arr) using np --> tolist (features is a list)
+    
+    
+    
+    # BOW + Glove
+    df['features'] = df.apply(lambda row: getAggListVecs(row['emb_glv_body'] + row['emb_glv_subj']) , axis=1) # + row['features'].tolist()
+    
+    # Filter out Nan (No glove vectors at all) from exp
+    new_filter_col_name = 'remove_empty_glv'
+    df[new_filter_col_name] = False
+    df.loc[df['features'].apply(lambda lst: type(lst) != list),new_filter_col_name] = True
+    dataset_info.ds.setFilterCol(new_filter_col_name)        
+    return df
 
+dctGloveParams = { 
+  'preprocess.modifyFeatureVector' : concatGlovePretrainedWithBOW,
+  'preprocess.select_best' : None,
+}    
+
+exps = createEnronMultipleConfigExps('sender',[dctGloveParams])
 ########################################## Run multi exp ################################################    
 df_results = run_multi_exps_configs(exps)
 
