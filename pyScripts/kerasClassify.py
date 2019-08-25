@@ -4,8 +4,6 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 import os
-import time
-import pprint
 import pickle
 import json
 
@@ -444,8 +442,14 @@ def get_mock_df(df_pk):
     return df_pk
 
 
-def get_pkl_features(pklFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
-    df_pk = pd.read_pickle(pklFilePath)
+def get_pkl_features(dataFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):    
+    filename, file_extension = os.path.splitext(dataFilePath)
+    if file_extension == '.pkl':
+        df_pk = pd.read_pickle(dataFilePath)
+    elif file_extension == '.parquet':
+        df_pk = pd.read_parquet(dataFilePath)
+    else:
+        raise Exception("Failed to read dataset: Unknown extension: %s\nOnly .pkl and .parquet are supported" % (file_extension))
     print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))   
     df = df_pk # df = get_mock_df(df_pk)  # TODO:Debug:Remove - prepare mock df 
     labels = df['label'].unique().tolist()
