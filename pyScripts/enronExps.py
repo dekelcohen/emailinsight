@@ -6,6 +6,7 @@ Created on Thu Aug 15 13:40:57 2019
 """
 from hpyutils import setattrs, rsetattr
 from kerasExperiments import run_multi_exps_configs, BaseExp
+from kerasClassify import evaluate_mlp_model
 import numpy as np
 import pandas as pd
 #################### Common Enron Experiments Infra ####################
@@ -13,17 +14,17 @@ class EnronBaseExp(BaseExp):
     def __init__(self,testgroupby):
         super().__init__()
         dsi = self.dataset_info
-        dsi.num_runs = 2
+        dsi.num_runs = 1
         dsi.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
         
         setattrs(dsi.preprocess,
-             text_cols = [ 'subject', 'body' ], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv) 'tok_to', 'tok_cc'
+             text_cols = [ 'subj', 'body' ], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv) 'tok_to', 'tok_cc'
              use_filtered = True,
              filtered_prefix = 'filt_',     
         )
         dsi.metrics.testgroupby = testgroupby
         # Debug: Remove/Change
-        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/group_0.pkl" 
+        dsi.csvEmailsFilePath =  "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/group_0.pkl"  # "D:/Dekel/Data/Text_py/Datasets/enron_deriv/sender_pkls/v2_vec_glv100_lda50_w2v100_ngr2_dct_ner/cache/group_0.pkl/small.parquet"
         dsi.labels_map = None
         dsi.sub_sample_mapped_labels = None
         
@@ -55,15 +56,20 @@ def createEnronMultipleConfigExps(testgroupby, arrDctParams):
     
 ###################### Features lift (compare metrics with 2 groups of features) ######################
 
-#dctSubjBody = { 
-#  'preprocess.text_cols' : [ 'subject', 'body' ],
-#}
-from kerasClassify import evaluate_mlp_model
-dctSubjBodyToCC = { 
-  'preprocess.text_cols' : [ 'subject', 'body','tok_to','tok_cc' ],
-  'train.classifier_func' : evaluate_mlp_model
+dctSubjBody = { 
+  'preprocess.text_cols' : [ 'subj', 'body' ],
 }
-exps = createEnronMultipleConfigExps('sender',[dctSubjBodyToCC]) #dctSubjBody,
+
+dctSubjectBody = { 
+  'preprocess.text_cols' : [ 'subject', 'content' ],
+}
+
+
+#dctSubjBodyToCC = { 
+#  'preprocess.text_cols' : [ 'subj', 'body','tok_to','tok_cc' ],
+##   'train.classifier_func' : evaluate_mlp_model
+#}
+# exps = createEnronMultipleConfigExps('sender',[dctSubjBody,dctSubjectBody]) #dctSubjBodyToCC,
 
 ###################### Randomized Labels Test ######################
 def randomizeLabels(dataset_info):
@@ -103,18 +109,19 @@ def createfilterFewEmailsGroup(testgroup,min_sender_emails_to_keep):
 
 
 ###################### W2V Trained Embeddings  ######################
-def concatW2vTrainedWithBOW(df):     
+def concatW2vTrainedWithBOW(df,dataset_info):     
     '''
     adds 'features' coludfmns by combining feature vectors of subject, body, different embeddings, etc
     '''    
     # Inside lambda - Convert each DenseVector cell (subj,body) to np.arr of np.arr --> elementwise avg of 2 vectors (avg of arr of arr) using np --> tolist (features is a list)
     
     # BOW + W2V_100
-    df['features'] = df.apply(lambda row: np.average(np.array([row['emb_w2v_body'].tolist(),row['emb_w2v_subj'].tolist()]),axis=0).tolist() + row['features'].tolist(), axis=1)    
+    df['features'] = df.apply(lambda row: np.average(np.array([list(row['emb_w2v_body']),list(row['emb_w2v_subj'])]),axis=0).tolist() + row['features'].tolist(), axis=1)    
     
     return df
 
-dctGetFeatureVectorParams = { 
+dctGetFeatureVectorParams = {
+  'load.required_cols' : ['emb_w2v_subj','emb_w2v_body'],      
   'preprocess.modifyFeatureVector' : concatW2vTrainedWithBOW,
   'preprocess.select_best' : None,
 }    
@@ -147,11 +154,12 @@ def concatGlovePretrainedWithBOW(df,dataset_info):
     return df
 
 dctGloveParams = { 
+  'load.required_cols' : ['emb_glv_subj','emb_glv_body'],
   'preprocess.modifyFeatureVector' : concatGlovePretrainedWithBOW,
   'preprocess.select_best' : None,
 }    
 
-# exps = createEnronMultipleConfigExps('sender',[dctGloveParams])
+exps = createEnronMultipleConfigExps('sender',[dctGloveParams])
 ########################################## Run multi exp ################################################    
 df_results = run_multi_exps_configs(exps)
 

@@ -55,6 +55,15 @@ def init_config():
     
     dataset_info.random_seed = []
     
+    ######### Data loading ###########
+    dataset_info.load = MyObj()
+    setattrs(dataset_info.load,
+        # don't load large DF with many cols --> 10GB mem --> very slow runtime + crashes --> instead use cache --> search cached df with required fields for this exp
+        required_cols = None, # Array of strings ['emb_w2v_body','emb_glv_body', ...] load from cache (or create cache) for extra fields, in addition to min cols set + text_cols 
+        min_cols = ['conversationId', 'createdDateTime', 'folderName', 'id', 'inferenceClassification', 'internetMessageId', 're', 'sentDateTime', 'subject',
+                    'userId', 'sender', 'content', 'body', 'subj', 'PartId', 'label', 'group', 'to_rcpt', 'cc_rcpt']
+    )
+    
     ######### Preprocessing ###########
     dataset_info.preprocess = MyObj()
     setattrs(dataset_info.preprocess,
@@ -96,13 +105,16 @@ def init_config():
     if dataset_info.num_runs > 1 and dataset_info.save_df:
         raise Exception("Cannot use both save_df and num_runs > 1")
     
-    ### Experiment params validation and computed params
+    ######################## Params validation and computed params ##########################################
     if getattr(dataset_info,'labels_map',False) :
         if getattr(dataset_info, 'new_label_names', False):
             raise Exception("Cannot use both new_label_names and labels_map")
         # Create new_label_names form labels_map unique values
         dataset_info.new_label_names = [i for i in list(set(dataset_info.labels_map.values())) if i not in getattr(dataset_info, "labels_map_filter_names", [])]
     
+    if not dataset_info.load.required_cols and dataset_info.preprocess.modifyFeatureVector:
+        print('Warning: override modifyFeatureVector - make sure all columns used in the function are specified at dataset_info.load.required_cols - or KeyError occurs')
+   
     return dataset_info
 
 dataset_info = init_config()
@@ -288,7 +300,11 @@ def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_b
         get_pkl_features(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
     else:
         get_ngram_data(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
-
+    
+    # Create new features 
+    if dataset_info.preprocess.modifyFeatureVector:
+        dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df,dataset_info)        
+    
     # User defined hook to optionally modify data before train/test split
     if dataset_info.hooks.afterFeatures:
         dataset_info.hooks.afterFeatures(dataset_info)

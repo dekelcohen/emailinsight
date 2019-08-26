@@ -44,7 +44,7 @@ def readDF(dataFilePath,req_cols,min_cols, verbose = True):
     else:
         df = pd.read_pickle(minDataFilePath)
     # For each column not in small / min df --> try to find a per column file to read and add to min_df. If file not found, fallback to reading the large file    
-    extra_cols = set(req_cols) - set(min_cols)
+    extra_cols = set(req_cols) if req_cols else set() - set(min_cols)
     
     # Test if all extra_cols have a datafile
     all_extra_cols_have_files = True

@@ -24,7 +24,10 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 import numbers
 
+from loader.read_partial import readDF
+
 stopwords_lst = None
+
 
 def get_stopwords_list():
     global stopwords_lst
@@ -445,7 +448,7 @@ def get_mock_df(df_pk):
 def get_pkl_features(dataFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):    
     filename, file_extension = os.path.splitext(dataFilePath)
     if file_extension == '.pkl':
-        df_pk = pd.read_pickle(dataFilePath)
+        df_pk = readDF(dataFilePath, dataset_info.load.required_cols, dataset_info.load.min_cols)
     elif file_extension == '.parquet':
         df_pk = pd.read_parquet(dataFilePath)
     else:
@@ -463,8 +466,6 @@ def get_pkl_features(dataFilePath, dataset_info, num_words=1000,matrix_type='bin
     dataset_info.ds.df = df
     dataset_info.label_names = labels
     get_pkl_tokenzie_features(df, labels, dataset_info, num_words=num_words,matrix_type=matrix_type,verbose=verbose,max_n=max_n)
-    if dataset_info.preprocess.modifyFeatureVector:
-        dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df,dataset_info)        
         
 def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
     '''
