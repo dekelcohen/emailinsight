@@ -1,4 +1,4 @@
-from kerasClassify import make_dataset, get_ngram_data, evaluate_mlp_model, get_emails, write_csv, get_pkl_features
+from kerasClassify import make_dataset, evaluate_mlp_model, get_emails, write_csv, load_df_and_features
 from mlClassify import logreg_classifier
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import PassiveAggressiveClassifier
@@ -296,11 +296,8 @@ def get_baseline_pa(dataset_info,verbose=True):
 def run_once(verbose=True,test_split=0.1,ftype='binary',num_words=10000,select_best=4000, plot=True,plot_prefix='',graph_to=None):    
     # Prepare features
     dataset_info.ds = Dataset()
-    if getattr(dataset_info,'read_exp_pkl',None):
-        get_pkl_features(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
-    else:
-        get_ngram_data(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)
-    
+
+    load_df_and_features(dataset_info.csvEmailsFilePath,dataset_info, num_words=num_words,matrix_type=ftype,verbose=verbose, max_n=dataset_info.ngram_max)    
     # Create new features 
     if dataset_info.preprocess.modifyFeatureVector:
         dataset_info.ds.df = dataset_info.preprocess.modifyFeatureVector(dataset_info.ds.df,dataset_info)        

@@ -41,64 +41,6 @@ def get_stopwords_list():
 
 from mboxConvert import parseEmails,parseEmailsCSV,getEmailStats,mboxToBinaryCSV
 
-def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxlen=None, as_matrix=True, matrix_type='count',
-                      label_cutoff=0.01, max_n=1):
-    (totalWordsCount, fromCount, domainCount, labels) = getEmailStats(dataset_info.ds.df)
-    if verbose:
-        print('Creating email dataset with labels %s ' % str(labels))
-        print('Label word breakdown:')
-        total = 0
-        for label in labels:
-            count = sum(totalWordsCount[label].values())
-            total += count
-            print('\t%s:%d' % (label, count))
-        print('Total word count: %d' % total)
-
-    labelCounts = {label: 0 for label in labels}
-    for index, email in dataset_info.ds.df.iterrows():
-        labelCounts[email.label] += 1
-    cutoff = int(len(dataset_info.ds.df) * label_cutoff)
-    removed = 0
-    for label in labels[:]:
-        if labelCounts[label] < cutoff or label == 'Important' or label == 'Unread' or label == 'Sent':
-            removed += 1
-            labels.remove(label)
-    labelNums = {labels[i]: i for i in range(len(labels))}
-    if verbose:
-        print('Found %d labels below count threshold of %d ' % (removed, cutoff))
-    if verbose:
-        print('Creating email dataset with labels %s ' % str(labels))
-        print('Label email count breakdown:')
-        total = 0
-        for label in labels:
-            print('\t%s:%d' % (label, labelCounts[label]))
-        print('Total emails: %d' % sum([labelCounts[label] for label in labels]))
-
-    texts = []
-    emailLabels = []
-    updateIds = []
-    for index, email in dataset_info.ds.df.iterrows():
-        if email.label not in labels:
-            continue
-        text = email.sender + " " + str(email.subject) + " "
-        text += email.fromDomain
-        if email.to:
-            text += email.to + " "
-            if getattr(dataset_info,'toccDomains', False): 
-                text += email.toDomain + " "
-        if email.cc:
-            text += email.cc + " "
-            if getattr(dataset_info,'toccDomains', False): 
-                text += email.ccDomain + " "           
-            
-        text += email.content
-        texts.append(text.replace('\n', '').replace('\r', ''))
-        emailLabels.append(labelNums[email.label])
-        updateIds.append(email.updateId)
-    emailLabels = np.array(emailLabels)
-    dataset_info.ds.df['label_num'] = emailLabels # unique labels, after cutoff (rare labels are not included in emailLables)
-    dataset_info.label_names = labels
-    tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words, as_matrix, matrix_type, max_n)
 
 def write_csv(csvfile, emails, verbose=True):
     emails.to_csv(csvfile, index=False, sep='\t')
@@ -446,12 +388,16 @@ def get_mock_df(df_pk):
     return df_pk
 
 
-def get_pkl_features(dataFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):    
+def load_df_and_features(dataFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):    
     filename, file_extension = os.path.splitext(dataFilePath)
     if file_extension == '.pkl':
         df_pk = readDF(dataFilePath, dataset_info.load.required_cols, dataset_info.load.min_cols)
     elif file_extension == '.parquet':
         df_pk = pd.read_parquet(dataFilePath)
+    elif file_extension == '.csv':
+        df_pk = pd.read_csv(dataFilePath)    
+    elif file_extension == '.tsv':
+        df_pk = pd.read_csv(dataFilePath, header=0, sep='\t', keep_default_na=False)        
     else:
         raise Exception("Failed to read dataset: Unknown extension: %s\nOnly .pkl and .parquet are supported" % (file_extension))
     print('Dataframe columns:\n--------------------------\n%s\n' % (list(df_pk.columns)))   
@@ -504,25 +450,6 @@ def get_pkl_tokenzie_features(df, labels,dataset_info, num_words=1000,matrix_typ
     tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words=num_words, as_matrix=True, matrix_type=matrix_type, max_n=max_n)
     
     
-def get_ngram_data(emailsFilePath, dataset_info, num_words=1000,matrix_type='binary',verbose=True,max_n=1):
-    cachefile = 'cache_data.tsv'  # Cached features csv file
-    infofile = 'data_info.txt'
-    emails = pd.read_csv(emailsFilePath, header=0, sep='\t', keep_default_na=False)
-    dataset_info.ds.df = emails
-    if dataset_info.force_papulate_cache or (not dataset_info.force_papulate_cache and not os.path.isfile(cachefile)):
-        convert_emails(dataset_info.ds.df)
-        write_csv(cachefile, dataset_info.ds.df, verbose=verbose)
-        get_word_features(dataset_info, nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
-        write_info(infofile, dataset_info.label_names)
-    else:
-        cacheData = pd.read_csv(cachefile, sep='\t', header=0, keep_default_na=False)
-        cachedEmail = cacheData[(cacheData.updateId.isin(emails.updateId))]
-        noCachedEmail = emails[(~emails.updateId.isin(cacheData.updateId))]
-        if not noCachedEmail.empty:
-            raise Exception('Found emails not in cache')
-        dataset_info.ds.df = cachedEmail
-        get_word_features(dataset_info,nb_words=num_words, matrix_type=matrix_type, verbose=verbose, max_n=max_n)
-
 
 def get_my_data(per_label=False):
     csvfile = 'my_data_%s.csv'%str(per_label)

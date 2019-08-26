@@ -15,7 +15,7 @@ class EnronBaseExp(BaseExp):
         super().__init__()
         dsi = self.dataset_info
         dsi.num_runs = 1
-        dsi.read_exp_pkl = True # Read pickled Spark dataset and extract features differently than default_exp
+        dsi.read_df_feature = True # Read pickled Spark dataset and extract features differently than default_exp
         
         setattrs(dsi.preprocess,
              text_cols = [ 'subj', 'body' ], # , 'people_format' # Important: Not used in old get_ngrams_data (.tsv) 'tok_to', 'tok_cc'
