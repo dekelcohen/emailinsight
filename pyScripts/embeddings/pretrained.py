@@ -6,6 +6,7 @@ Created on Mon Aug 26 14:18:45 2019
 """
 
 import gensim.downloader as api
+import numpy as np
 
 modelCache = dict()
             
@@ -15,6 +16,26 @@ def loadGloveGensimDownloader(dims = 100):
         modelCache[model_key] = api.load(model_key)            
     return modelCache[model_key]
 
+
+def getAggListVecs(lstVecs):
+    return np.average(np.array([np.array(v) for v in lstVecs]),axis=0).tolist()
+
+def getWordVectorsFromOneHot(vec_features, feature_names,w2v):
+    '''
+    vec_features : sparse feature (OneHot like) vector - 0 if no word and > 0 if word 
+    feature_names - np.array of [feature_tok1,feature_tok2,...]
+    w2v - keyedVector with word-->vector mapping - https://radimrehurek.com/gensim/models/keyedvectors.html
+    '''
+    words = feature_names[vec_features > 0]
+    vecList = [getWordVec(word,w2v) for word in words]
+    return vecList
+    
+    
+def getWordVec(word,w2v):
+    if word in w2v:
+        return w2v[word]
+    else:
+        return np.zeros(w2v['yes'].shape[0])
 
 #import gensim
 #import numpy as np
@@ -34,8 +55,9 @@ def loadGloveGensimDownloader(dims = 100):
 
 ####### UnitTest ######
 
-# glove = loadGloveGensimDownloader(100)
-  
+# w2v = loadGloveGensimDownloader(100)
+# getWordVec('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb',w2v)  
+        
 # Gensim old iface      
 # wvh = WordVectorsHelper("models/GoogleNews-vectors-negative300.bin.gz")
 

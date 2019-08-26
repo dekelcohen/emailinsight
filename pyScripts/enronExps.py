@@ -4,11 +4,14 @@ Created on Thu Aug 15 13:40:57 2019
 
 @author: Dekel
 """
+import numpy as np
+import pandas as pd
 from hpyutils import setattrs, rsetattr
 from kerasExperiments import run_multi_exps_configs, BaseExp, createMultipleConfigExps
 from kerasClassify import evaluate_mlp_model
-import numpy as np
-import pandas as pd
+
+from embeddings.pretrained import loadGloveGensimDownloader,getAggListVecs
+
 #################### Common Enron Experiments Infra ####################
 class EnronBaseExp(BaseExp):
     def __init__(self,testgroupby):
@@ -120,8 +123,7 @@ dctGetFeatureVectorParams = {
 
 
 ###################### Glove Pretrained Embeddings  ######################
-def getAggListVecs(lstVecs):
-    return np.average(np.array([np.array(v) for v in lstVecs]),axis=0).tolist()
+
     
 def concatGlovePretrainedWithBOW(df,dataset_info):
     '''
