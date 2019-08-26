@@ -16,7 +16,7 @@ from datetime import datetime
 import time
 
 import pandas as pd
-from hpyutils import MyObj, setattrs
+from hpyutils import MyObj, setattrs, rsetattr
 from my_metrics import calc_metrics, print_metrics, plot_metrics
 from debug_ml import explain_predictions
 
@@ -531,4 +531,19 @@ class BaseExp:
        self.dataset_info = init_config()
     def tag_metrics(self,dataset_info,df_test_metrics):
        pass
+
+def createMultipleConfigExps(arrDctParams, getExpInstance):
+    '''
+    Return a list of experiments with different params, according to dctParams
+    '''
+    if type(arrDctParams)!=list or len(arrDctParams)== 0:
+        raise Exception('createMultipleConfigExps: arrDctParams must be of type list and contain at least a single empty dict, otherwise 0 experiments will be returned')
+    exps = []
+    for dctPrms in arrDctParams:
+        exp = getExpInstance()
+        for prmKey in list(dctPrms.keys()):
+            prmVal = dctPrms[prmKey]            
+            rsetattr(exp.dataset_info,prmKey,prmVal)
+        exps.append(exp)        
+    return exps
         

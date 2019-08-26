@@ -97,6 +97,7 @@ def get_word_features(dataset_info,verbose=True, nb_words=5000, skip_top=0, maxl
         updateIds.append(email.updateId)
     emailLabels = np.array(emailLabels)
     dataset_info.ds.df['label_num'] = emailLabels # unique labels, after cutoff (rare labels are not included in emailLables)
+    dataset_info.label_names = labels
     tokenize_vectorize(texts,labels, dataset_info,verbose, nb_words, as_matrix, matrix_type, max_n)
 
 def write_csv(csvfile, emails, verbose=True):

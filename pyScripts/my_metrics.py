@@ -83,7 +83,7 @@ def calc_test_group_stats(df_t,dataset_info,y_true):
     # Accuracy per group
     testgroup = getattr(dataset_info.metrics,'testgroupby',None)
     if testgroup is None:
-        return None
+        return None,None
     df_train = dataset_info.ds.get_X_train()
     df_t['correct_pred'] = y_true == df_t['predictions']
 

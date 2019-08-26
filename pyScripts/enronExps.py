@@ -5,7 +5,7 @@ Created on Thu Aug 15 13:40:57 2019
 @author: Dekel
 """
 from hpyutils import setattrs, rsetattr
-from kerasExperiments import run_multi_exps_configs, BaseExp
+from kerasExperiments import run_multi_exps_configs, BaseExp, createMultipleConfigExps
 from kerasClassify import evaluate_mlp_model
 import numpy as np
 import pandas as pd
@@ -37,19 +37,7 @@ class EnronBaseExp(BaseExp):
 # arrDctParams - Array of dctParams to apply to base config
 # TODO: tag_metrics - by the keys in the dicts (col for each key)
 def createEnronMultipleConfigExps(testgroupby, arrDctParams):
-    '''
-    Return a list of experiments with different params, according to dctParams
-    '''
-    if type(arrDctParams)!=list or len(arrDctParams)== 0:
-        raise Exception('createEnronMultipleConfigExps: arrDctParams must be of type list and contain at least a single empty dict, otherwise 0 experiments will be returned')
-    exps = []
-    for dctPrms in arrDctParams:
-        exp = EnronBaseExp(testgroupby)
-        for prmKey in list(dctPrms.keys()):
-            prmVal = dctPrms[prmKey]            
-            rsetattr(exp.dataset_info,prmKey,prmVal)
-        exps.append(exp)        
-    return exps
+    return createMultipleConfigExps(arrDctParams,lambda : EnronBaseExp(testgroupby))
 
 
 ############################################################ Sepcific Enron Exps ################################################################

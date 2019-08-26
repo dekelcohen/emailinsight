@@ -10,3 +10,6 @@ run kerasExperiment.py and observe results with the Sample dataset (below). It s
 The default dataset is a small subset of Enron emails dataset - just a single user with 6 folders. See parsing and format documentation in parseEmailsCSV
 You can export your gmail archive. Comment the call to parseEmailsCSV in get_emails function in kerasClassify.py and Uncomment the parseEmails() call.
 It is hard coded to just look in the current directory, but you can modify it as needed - in general, the code is for you to use an inspiration but is not really more than a collection of scripts I wrote up.
+
+## Embeddings
+If used, download and place the word vectors files at pyScripts/embeddings/models

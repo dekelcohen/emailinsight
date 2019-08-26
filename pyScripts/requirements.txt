@@ -10,3 +10,4 @@ scikit_learn==0.20.3
 lime==0.1.1.34
 shap==0.29.1
 scikit-image==0.14.2
+gensim==3.8.0
