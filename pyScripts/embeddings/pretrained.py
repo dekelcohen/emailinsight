@@ -55,7 +55,7 @@ def getWordVec(word,w2v):
 
 ####### UnitTest ######
 
-# w2v = loadGloveGensimDownloader(100)
+w2v = loadGloveGensimDownloader(100)
 # getWordVec('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabb',w2v)  
         
 # Gensim old iface      
